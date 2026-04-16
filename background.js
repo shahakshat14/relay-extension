@@ -1,6 +1,6 @@
-// Show a subtle badge dot when local bookmarks change since last sync
-// The popup clears it after a successful sync
+'use strict';
 
+// Badge dot when bookmarks change and auto-sync is on
 async function markPending() {
   const { autoSync } = await chrome.storage.local.get('autoSync');
   if (autoSync) {
@@ -15,5 +15,5 @@ chrome.bookmarks.onChanged.addListener(markPending);
 chrome.bookmarks.onMoved.addListener(markPending);
 
 chrome.runtime.onInstalled.addListener(({ reason }) => {
-  if (reason === 'install') console.log('Relay installed.');
+  if (reason === 'install') console.log('Relay v2 installed.');
 });
