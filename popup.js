@@ -19,24 +19,87 @@ function generateSuggestions(base) {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Password strength
+// Username guardrails
 // ─────────────────────────────────────────────────────────────────────
+const RESERVED = new Set([
+  // Brand / system
+  'relay','admin','administrator','root','system','superuser','mod','moderator',
+  'support','help','helpdesk','staff','team','official','ops','operations',
+  // Generic abuse vectors
+  'test','demo','null','undefined','anonymous','user','username','account',
+  'guest','bot','spam','abuse','noreply','no-reply',
+  // Common squats
+  'me','you','we','us','everyone','all','public','private','global',
+  // Relay-specific
+  'relayapp','relay-app','relaysync','relay-sync','getrelay',
+]);
+
+const BLOCKED_PATTERNS = [
+  /^[_\-]/, /[_\-]$/, // can't start or end with _ or -
+  /[_\-]{2}/,          // no consecutive separators
+];
+
+function validateUsername(username) {
+  if (!username)           return { ok:false, msg:'' };
+  if (username.length < 3) return { ok:false, msg:'At least 3 characters.' };
+  if (username.length > 24)return { ok:false, msg:'Max 24 characters.' };
+  if (!/^[a-z0-9_-]+$/.test(username))
+                           return { ok:false, msg:'Only letters, numbers, - and _.' };
+  if (RESERVED.has(username))
+                           return { ok:false, msg:`"${username}" is reserved.` };
+  if (BLOCKED_PATTERNS.some(r => r.test(username)))
+                           return { ok:false, msg:'Can't start/end with - or _ or use them consecutively.' };
+  return { ok:true, msg:'' };
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Password strength — minimum 3/4 required to create account
+// ─────────────────────────────────────────────────────────────────────
+const COMMON_PASSWORDS = new Set([
+  'password','password1','123456','12345678','qwerty','abc123','letmein',
+  'monkey','1234567','dragon','master','sunshine','princess','welcome',
+  'shadow','superman','michael','football','iloveyou','admin','login',
+  'passw0rd','password123','pass','1234','test','123','relay123',
+]);
+
 function pwStrength(p) {
   if (!p) return 0;
+  if (COMMON_PASSWORDS.has(p.toLowerCase())) return 1; // cap at weak
   let s = 0;
   if (p.length >= 8)  s++;
   if (p.length >= 12) s++;
-  if (/[^a-zA-Z0-9]/.test(p) || /[A-Z]/.test(p)) s++;
-  if (p.length >= 16) s++;
-  return s;
+  if (/[^a-zA-Z0-9]/.test(p) || (/[A-Z]/.test(p) && /[a-z]/.test(p))) s++;
+  if (p.length >= 16 || (/[^a-zA-Z0-9]/.test(p) && p.length >= 12)) s++;
+  return Math.min(s, 4);
+}
+
+function pwRequirement(p) {
+  // Returns a hint for what the user still needs to do
+  if (!p)              return '';
+  if (COMMON_PASSWORDS.has(p.toLowerCase())) return 'Too common — try something unique.';
+  if (p.length < 8)    return `${8-p.length} more character${8-p.length===1?'':'s'} needed.`;
+  if (pwStrength(p) < 3) {
+    const hints = [];
+    if (p.length < 12)       hints.push('make it longer');
+    if (!/[A-Z]/.test(p))    hints.push('add uppercase');
+    if (!/[0-9]/.test(p))    hints.push('add a number');
+    if (!/[^a-zA-Z0-9]/.test(p)) hints.push('add a symbol');
+    return hints.length ? `Try: ${hints.slice(0,2).join(', ')}.` : '';
+  }
+  return '';
 }
 
 function renderStrength(p) {
   const s    = pwStrength(p);
   const cols = ['#dddde3','#e63946','#f4a020','#2dc653','#2dc653'];
-  const lbls = ['','Weak','Fair','Strong','Very strong'];
+  const lbls = ['','Weak — not accepted','Fair — almost there','Strong ✓','Very strong ✓'];
   for (let i=1;i<=4;i++) { const b=q(`sb${i}`); if(b) b.style.background = i<=s?cols[s]:'#dddde3'; }
-  const l=q('strLbl'); if(l){l.textContent=p?lbls[s]:''; l.style.color=cols[s];}
+  const l=q('strLbl');
+  if (l) {
+    const req = pwRequirement(p);
+    l.textContent = p ? (req || lbls[s]) : '';
+    l.style.color  = cols[s];
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -80,12 +143,25 @@ async function checkUsername(username) {
   const sugsEl   = q('suggestions');
   const createBtn= q('btnCreate');
 
-  if (!username || username.length < 3) {
-    statusEl.style.opacity='0';
-    sugsEl.style.display='none';
-    inp.classList.remove('valid','taken');
-    unameValid = false;
-    createBtn.disabled = true;
+  // Reset
+  statusEl.style.opacity='0';
+  sugsEl.style.display='none';
+  inp.classList.remove('valid','taken');
+  unameValid = false;
+  createBtn.disabled = true;
+
+  if (!username) return;
+
+  // Local validation first — no network call needed
+  const { ok, msg } = validateUsername(username);
+  if (!ok) {
+    if (msg) {
+      statusEl.className='uname-status taken';
+      statusEl.style.opacity='1';
+      msgEl.textContent = msg;
+      iconEl.textContent='✗';
+      inp.classList.add('taken');
+    }
     return;
   }
 
@@ -94,10 +170,6 @@ async function checkUsername(username) {
   statusEl.style.opacity='1';
   msgEl.textContent='Checking availability…';
   iconEl.textContent='·';
-  inp.classList.remove('valid','taken');
-  sugsEl.style.display='none';
-  unameValid = false;
-  createBtn.disabled = true;
 
   const available = await checkUsernameAvailable(username);
 
@@ -141,7 +213,7 @@ function debouncedCheck(username) {
 
 function updateCreateBtn() {
   const pass = q('passInput')?.value||'';
-  q('btnCreate').disabled = !(unameValid && pwStrength(pass) >= 2);
+  q('btnCreate').disabled = !(unameValid && pwStrength(pass) >= 3);
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -211,9 +283,14 @@ q('btnReturning').addEventListener('click', ()=>show('vSignIn'));
 q('btnBackSetup').addEventListener('click', ()=>show('vOnboard'));
 
 q('unameInput').addEventListener('input', ()=>{
+  // Sanitise as user types — only allow valid chars, lowercase
   const val = q('unameInput').value.toLowerCase().replace(/[^a-z0-9\-_]/g,'');
-  q('unameInput').value = val;
+  if (q('unameInput').value !== val) q('unameInput').value = val;
   debouncedCheck(val);
+});
+
+q('unameInput').addEventListener('keydown', e=>{
+  if (e.key==='Enter') q('passInput')?.focus();
 });
 
 q('passInput').addEventListener('input', ()=>{
@@ -227,7 +304,7 @@ q('btnCreate').addEventListener('click', async ()=>{
   const username = q('unameInput').value.trim();
   const password = q('passInput').value;
   if (!unameValid) { toast('toastSetup','Choose an available username.','err'); return; }
-  if (pwStrength(password) < 2) { toast('toastSetup','Choose a stronger password.','err'); return; }
+  if (pwStrength(password) < 3) { toast('toastSetup','Password too weak — aim for Strong or better.','err'); return; }
 
   q('btnCreate').disabled=true;
   q('btnCreate').innerHTML='<span class="sp"></span> Creating…';
