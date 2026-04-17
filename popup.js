@@ -1,70 +1,63 @@
 'use strict';
 
 // ─────────────────────────────────────────────────────────────────────
-// Username suggestions — generated when a name is taken
+// Password generator
 // ─────────────────────────────────────────────────────────────────────
-const ADJECTIVES = ['swift','calm','bold','bright','cool','deep','free','glad','kind','lone','neat','pure','soft','true','wise','zesty'];
-const NOUNS      = ['panda','tiger','river','storm','cedar','ember','frost','grove','haven','island','lark','maple','prism','quartz','raven','stone'];
+const WORDS = [
+  'apple','amber','atlas','azure','blaze','bloom','breeze','bridge',
+  'cedar','cloud','coral','crane','dawn','delta','drift','dune',
+  'eagle','echo','ember','epoch','fern','field','flame','flint',
+  'forest','frost','glade','gleam','grove','haven','hawk','haze',
+  'hollow','horizon','inlet','island','jade','jasper','lake','lark',
+  'lemon','light','linden','maple','marsh','meadow','mist','moon',
+  'moss','mountain','nova','oak','ocean','olive','opal','orbit',
+  'peak','pine','prism','quartz','rain','rapid','raven','reef',
+  'ridge','river','rock','rose','rush','sage','sand','sierra',
+  'silver','sky','slate','snow','solar','spark','spring','star',
+  'stone','storm','stream','summit','swift','terra','tide','timber',
+  'vale','violet','wave','willow','wind','winter','zenith','zephyr'
+];
 
-function generateSuggestions(base) {
-  const clean = base.replace(/[^a-z0-9]/gi,'').toLowerCase().slice(0,12) || 'user';
-  const arr   = new Uint32Array(4);
+function genPass() {
+  const arr = new Uint32Array(4);
   crypto.getRandomValues(arr);
-  return [
-    `${clean}${(arr[0]%90)+10}`,
-    `${ADJECTIVES[arr[1]%ADJECTIVES.length]}-${clean}`,
-    `${clean}-${NOUNS[arr[2]%NOUNS.length]}`,
-    `${ADJECTIVES[arr[3]%ADJECTIVES.length]}-${NOUNS[arr[0]%NOUNS.length]}`,
-  ];
+  return Array.from(arr).map(n => WORDS[n % WORDS.length]).join('-');
 }
 
 // ─────────────────────────────────────────────────────────────────────
 // Username guardrails
 // ─────────────────────────────────────────────────────────────────────
 const RESERVED = new Set([
-  // Brand / system
   'relay','admin','administrator','root','system','superuser','mod','moderator',
   'support','help','helpdesk','staff','team','official','ops','operations',
-  // Generic abuse vectors
   'test','demo','null','undefined','anonymous','user','username','account',
   'guest','bot','spam','abuse','noreply','no-reply',
-  // Common squats
   'me','you','we','us','everyone','all','public','private','global',
-  // Relay-specific
   'relayapp','relay-app','relaysync','relay-sync','getrelay',
 ]);
 
-const BLOCKED_PATTERNS = [
-  /^[_\-]/, /[_\-]$/, // can't start or end with _ or -
-  /[_\-]{2}/,          // no consecutive separators
-];
-
-function validateUsername(username) {
-  if (!username)           return { ok:false, msg:'' };
-  if (username.length < 3) return { ok:false, msg:'At least 3 characters.' };
-  if (username.length > 24)return { ok:false, msg:'Max 24 characters.' };
-  if (!/^[a-z0-9_-]+$/.test(username))
-                           return { ok:false, msg:'Only letters, numbers, - and _.' };
-  if (RESERVED.has(username))
-                           return { ok:false, msg:`"${username}" is reserved.` };
-  if (BLOCKED_PATTERNS.some(r => r.test(username)))
-                           return { ok:false, msg:"Can't start/end with - or _ or use them consecutively." };
+function validateUsername(u) {
+  if (!u)              return { ok:false, msg:'' };
+  if (u.length < 3)   return { ok:false, msg:'At least 3 characters.' };
+  if (u.length > 24)  return { ok:false, msg:'Max 24 characters.' };
+  if (!/^[a-z0-9_-]+$/.test(u)) return { ok:false, msg:'Only letters, numbers, - and _.' };
+  if (RESERVED.has(u)) return { ok:false, msg:`"${u}" is reserved.` };
+  if (/^[_-]|[_-]$|[_-]{2}/.test(u)) return { ok:false, msg:"Can't start/end with - or _ or use them twice." };
   return { ok:true, msg:'' };
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Password strength — minimum 3/4 required to create account
+// Password strength
 // ─────────────────────────────────────────────────────────────────────
-const COMMON_PASSWORDS = new Set([
+const COMMON = new Set([
   'password','password1','123456','12345678','qwerty','abc123','letmein',
-  'monkey','1234567','dragon','master','sunshine','princess','welcome',
-  'shadow','superman','michael','football','iloveyou','admin','login',
-  'passw0rd','password123','pass','1234','test','123','relay123',
+  'monkey','dragon','master','sunshine','princess','welcome','shadow',
+  'passw0rd','password123','pass','1234','test','123','relay123','iloveyou',
 ]);
 
 function pwStrength(p) {
   if (!p) return 0;
-  if (COMMON_PASSWORDS.has(p.toLowerCase())) return 1; // cap at weak
+  if (COMMON.has(p.toLowerCase())) return 1;
   let s = 0;
   if (p.length >= 8)  s++;
   if (p.length >= 12) s++;
@@ -73,538 +66,540 @@ function pwStrength(p) {
   return Math.min(s, 4);
 }
 
-function pwRequirement(p) {
-  // Returns a hint for what the user still needs to do
-  if (!p)              return '';
-  if (COMMON_PASSWORDS.has(p.toLowerCase())) return 'Too common — try something unique.';
-  if (p.length < 8)    return `${8-p.length} more character${8-p.length===1?'':'s'} needed.`;
+function pwHint(p) {
+  if (!p) return '';
+  if (COMMON.has(p.toLowerCase())) return 'Too common — try something unique.';
+  if (p.length < 8) return `${8-p.length} more character${8-p.length===1?'':'s'} needed.`;
   if (pwStrength(p) < 3) {
-    const hints = [];
-    if (p.length < 12)       hints.push('make it longer');
-    if (!/[A-Z]/.test(p))    hints.push('add uppercase');
-    if (!/[0-9]/.test(p))    hints.push('add a number');
-    if (!/[^a-zA-Z0-9]/.test(p)) hints.push('add a symbol');
-    return hints.length ? `Try: ${hints.slice(0,2).join(', ')}.` : '';
+    const h=[];
+    if (p.length < 12)              h.push('make it longer');
+    if (!/[A-Z]/.test(p))           h.push('add uppercase');
+    if (!/[0-9]/.test(p))           h.push('add a number');
+    if (!/[^a-zA-Z0-9]/.test(p))   h.push('add a symbol');
+    return h.length ? `Try: ${h.slice(0,2).join(', ')}.` : '';
   }
   return '';
 }
 
 function renderStrength(p) {
-  const s    = pwStrength(p);
-  const cols = ['#dddde3','#e63946','#f4a020','#2dc653','#2dc653'];
-  const lbls = ['','Weak — not accepted','Fair — almost there','Strong ✓','Very strong ✓'];
-  for (let i=1;i<=4;i++) { const b=q(`sb${i}`); if(b) b.style.background = i<=s?cols[s]:'#dddde3'; }
+  const s=pwStrength(p);
+  const cols=['#2a2a3a','#f26d6d','#f5a623','#3ecf6e','#3ecf6e'];
+  const lbls=['','Weak — not accepted','Almost — a bit stronger','Strong ✓','Very strong ✓'];
+  for(let i=1;i<=4;i++){const b=q(`sb${i}`);if(b) b.style.background=i<=s?cols[s]:'rgba(255,255,255,.07)';}
   const l=q('strLbl');
-  if (l) {
-    const req = pwRequirement(p);
-    l.textContent = p ? (req || lbls[s]) : '';
-    l.style.color  = cols[s];
-  }
+  if(l){const h=pwHint(p);l.textContent=p?(h||lbls[s]):'';l.style.color=cols[s];}
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Session — chrome.storage.session
-// This is the correct API for extension session state:
-// - Persists across popup open/close ✓
-// - Shared across all extension contexts ✓
-// - Clears automatically when browser closes ✓
-// - Never written to disk ✓
+// Session — chrome.storage.session (survives popup close, clears on browser close)
 // ─────────────────────────────────────────────────────────────────────
-let _sessionU = null;
-let _sessionP = null;
+let _u=null,_p=null;
 
-async function loadSession() {
-  try {
-    const data = await chrome.storage.session.get(['relay_u','relay_p']);
-    _sessionU = data.relay_u || null;
-    _sessionP = data.relay_p || null;
-  } catch { _sessionU = null; _sessionP = null; }
+async function loadSession(){
+  try{const d=await chrome.storage.session.get(['relay_u','relay_p']);_u=d.relay_u||null;_p=d.relay_p||null;}
+  catch{_u=null;_p=null;}
 }
-
-async function saveSession(u, p) {
-  _sessionU = u;
-  _sessionP = p;
-  try { await chrome.storage.session.set({ relay_u: u, relay_p: p }); } catch {}
+async function saveSession(u,p){
+  _u=u;_p=p;
+  try{await chrome.storage.session.set({relay_u:u,relay_p:p});}catch{}
 }
-
-async function clearSession() {
-  _sessionU = null;
-  _sessionP = null;
-  try { await chrome.storage.session.remove(['relay_u','relay_p']); } catch {}
+async function clearSession(){
+  _u=null;_p=null;
+  try{await chrome.storage.session.remove(['relay_u','relay_p']);}catch{}
 }
-
-const getU   = () => _sessionU;
-const getP   = () => _sessionP;
-const setU   = v  => { _sessionU = v; };
-const setP   = v  => { _sessionP = v; };
-const clearS = () => clearSession();
+const getU=()=>_u, getP=()=>_p;
 
 // ─────────────────────────────────────────────────────────────────────
 // UI helpers
 // ─────────────────────────────────────────────────────────────────────
-const q      = id  => document.getElementById(id);
-const show   = id  => { document.querySelectorAll('.view').forEach(v=>v.classList.remove('active')); q(id)?.classList.add('active'); };
-const clrT   = id  => { const e=q(id); if(e) e.className='toast'; };
-const toast  = (id,msg,type) => { const e=q(id); if(!e) return; e.textContent=msg; e.className=`toast ${type}`; };
-const eyeBtn = (iId,bId) => { const i=q(iId); i.type=i.type==='password'?'text':'password'; q(bId).textContent=i.type==='password'?'👁':'🙈'; };
+const q=id=>document.getElementById(id);
 
-function age(iso) {
-  const s = Math.round((Date.now()-new Date(iso))/1000);
-  if (s<5)    return 'just now';
-  if (s<60)   return `${s}s ago`;
-  if (s<120)  return '1 min ago';
-  if (s<3600) return `${Math.floor(s/60)} min ago`;
+function show(id){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  q(id)?.classList.add('active');
+}
+
+function eye(inpId,btnId){
+  const i=q(inpId);
+  i.type=i.type==='password'?'text':'password';
+  q(btnId).textContent=i.type==='password'?'👁':'🙈';
+}
+
+const clrT=(id)=>{const e=q(id);if(e)e.className='toast';};
+const toast=(id,msg,t)=>{const e=q(id);if(!e)return;e.textContent=msg;e.className=`toast ${t}`;};
+
+function age(iso){
+  if(!iso)return '—';
+  const s=Math.round((Date.now()-new Date(iso))/1000);
+  if(s<5)  return 'just now';
+  if(s<60) return `${s}s ago`;
+  if(s<120)return '1m ago';
+  if(s<3600)return `${Math.floor(s/60)}m ago`;
   return new Date(iso).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Username availability check (debounced)
+// Plan UI helpers
 // ─────────────────────────────────────────────────────────────────────
-let unameTimer    = null;
-let unameValid    = false;
-let unameGeneration = 0; // FIX [H1]: discard stale async results
+const PRICING_URL='https://shahakshat14.github.io/relay-extension/pricing/';
 
-async function checkUsername(username) {
-  const statusEl = q('unameStatus');
-  const msgEl    = q('unameMsg');
-  const iconEl   = q('unameIcon');
-  const inp      = q('unameInput');
-  const sugsEl   = q('suggestions');
-  const createBtn= q('btnCreate');
+function applyPlan(plan){
+  const isPro = plan==='pro';
 
-  // FIX [H1]: Capture this check's generation before any await
-  const myGen = ++unameGeneration;
+  // Update all chips
+  ['mainChip','secChip'].forEach(id=>{
+    const el=q(id);
+    if(!el)return;
+    el.textContent=isPro?'PRO':'FREE';
+    el.className=`plan-badge${isPro?' pro':''}`;
+  });
 
-  // Reset
-  statusEl.style.opacity='0';
-  sugsEl.style.display='none';
-  inp.classList.remove('valid','taken');
-  unameValid = false;
-  createBtn.disabled = true;
+  // Update main screen hint
+  const hint=q('mainPlanHint');
+  if(hint)hint.textContent=isPro?'Pro plan · All features':'Free plan · 500 bookmarks';
 
-  if (!username) return;
+  // Show/hide upgrade teaser
+  const t=q('upgTeaser');
+  if(t)t.style.display=isPro?'none':'flex';
 
-  // Local validation first — no network call needed
-  const { ok, msg } = validateUsername(username);
-  if (!ok) {
-    if (msg && myGen === unameGeneration) {
-      statusEl.className='uname-status taken';
-      statusEl.style.opacity='1';
-      msgEl.textContent = msg;
-      iconEl.textContent='✗';
-      inp.classList.add('taken');
-    }
-    return;
-  }
-
-  // Show checking state
-  statusEl.className='uname-status checking';
-  statusEl.style.opacity='1';
-  msgEl.textContent='Checking availability…';
-  iconEl.textContent='·';
-
-  const available = await checkUsernameAvailable(username);
-
-  // FIX [H1]: Discard result if a newer check has started
-  if (myGen !== unameGeneration) return;
-
-  if (available) {
-    statusEl.className='uname-status ok';
-    msgEl.textContent=`@${username} is available ✓`;
-    iconEl.textContent='✓';
-    inp.classList.add('valid');
-    unameValid = true;
-    updateCreateBtn();
-  } else {
-    statusEl.className='uname-status taken';
-    msgEl.textContent=`@${username} is taken`;
-    iconEl.textContent='✗';
-    inp.classList.add('taken');
-    unameValid = false;
-    createBtn.disabled = true;
-
-    // Show suggestions
-    const sugs = generateSuggestions(username);
-    sugsEl.innerHTML = sugs.map(s =>
-      `<button class="sug-btn" data-name="${s}">@${s}</button>`
-    ).join('');
-    sugsEl.style.display='flex';
-
-    sugsEl.querySelectorAll('.sug-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        q('unameInput').value = btn.dataset.name;
-        sugsEl.style.display = 'none';
-        clearTimeout(unameTimer);
-        checkUsername(btn.dataset.name);
-      });
-    });
-  }
-}
-
-function debouncedCheck(username) {
-  clearTimeout(unameTimer);
-  unameTimer = setTimeout(() => checkUsername(username), 500);
-}
-
-function updateCreateBtn() {
-  const pass = q('passInput')?.value||'';
-  q('btnCreate').disabled = !(unameValid && pwStrength(pass) >= 3);
+  // Security screen plan details
+  const pt=q('secPlanTitle');
+  const pb=q('secPlanBody');
+  const ub=q('btnUpgrade');
+  if(pt)pt.textContent=isPro?'Relay Pro':'Free Plan';
+  if(pb)pb.textContent=isPro?'Unlimited bookmarks & browsers, auto-sync, 30-day history.':'Up to 500 bookmarks, 2 browsers, manual sync.';
+  if(ub)ub.style.display=isPro?'none':'flex';
 }
 
 // ─────────────────────────────────────────────────────────────────────
 // Sync
 // ─────────────────────────────────────────────────────────────────────
-async function runSync(username, password) {
-  const btn = q('btnSync');
+async function runSync(username, password){
+  const btn=q('btnSync');
   btn.disabled=true;
-  btn.classList.remove('done'); btn.classList.add('syncing');
-  const orbEl = q('mainOrb'); if(orbEl) orbEl.className='orb syncing';
+  btn.classList.remove('done','error');btn.classList.add('syncing');
+  const orb=q('mainOrb');if(orb)orb.className='orb syncing';
   q('orbIco').textContent='⇄';
   q('orbLabel').textContent='Syncing…';
   q('orbSub').textContent='Encrypting your bookmarks…';
   clrT('toastMain');
 
-  try {
-    const { pulled, count, plan } = await doSync(username, password);
-    await chrome.storage.local.set({ lastSync:new Date().toISOString(), plan });
+  try{
+    const {pulled,count,plan}=await doSync(username,password);
+    await chrome.storage.local.set({lastSync:new Date().toISOString(),plan,bmCount:count});
     chrome.action.setBadgeText({text:''}).catch(()=>{});
 
-    btn.classList.remove('syncing'); btn.classList.add('done');
-    const orbElS = q('mainOrb'); if(orbElS) orbElS.className='orb done';
+    btn.classList.remove('syncing');btn.classList.add('done');
+    if(orb)orb.className='orb done';
     q('orbIco').textContent='✓';
-    q('orbLabel').textContent = pulled>0 ? `${pulled} bookmark${pulled===1?'':'s'} added` : 'All synced';
-    q('orbSub').textContent   = `${count} bookmarks · encrypted`;
+    q('orbLabel').textContent=pulled>0?`${pulled} bookmark${pulled===1?'':'s'} added`:'All synced';
+    q('orbSub').textContent=`${count} bookmarks synced`;
 
-    // Update plan badge
-    updatePlanBadge(plan);
+    // Show persistent stats
+    showStats(count, new Date().toISOString());
+    applyPlan(plan||'free');
 
     setTimeout(()=>{
-      btn.disabled=false; btn.classList.remove('done','syncing');
-      const orbElR = q('mainOrb'); if(orbElR) orbElR.className='orb';
+      btn.disabled=false;btn.classList.remove('done');
+      if(orb)orb.className='orb';
       q('orbIco').textContent='⇄';
       q('orbLabel').textContent='Sync Now';
-      q('orbSub').textContent='Last synced just now';
-    }, 3000);
+      q('orbSub').textContent=`Synced · ${age(new Date().toISOString())}`;
+    },3200);
 
-  } catch(err) {
-    btn.disabled=false; btn.classList.remove('syncing','done');
+  }catch(err){
+    btn.disabled=false;
+    btn.classList.remove('syncing','done');btn.classList.add('error');
+    if(orb)orb.className='orb error';
 
-    // Handle free tier limit gracefully
-    if (err.message.startsWith('FREE_LIMIT:')) {
-      const count = err.message.split(':')[1];
+    if(err.message.startsWith('FREE_LIMIT:')){
+      const c=err.message.split(':')[1];
       q('orbIco').textContent='⚡';
       q('orbLabel').textContent='Upgrade to sync all';
-      q('orbSub').textContent=`${count} bookmarks — free limit is 500`;
-      toast('toastMain', `You have ${count} bookmarks. Free plan supports 500. Upgrade to Pro for unlimited.`, 'err');
-      showUpgradePrompt();
+      q('orbSub').textContent=`${c} bookmarks — limit is 500`;
+      const al=q('upgradeAlert');if(al)al.classList.add('show');
+      btn.classList.remove('error');
+      setTimeout(()=>{btn.disabled=false;if(orb)orb.className='orb';q('orbIco').textContent='⇄';},1500);
       return;
     }
 
-    const orbElE = q('mainOrb'); if(orbElE) orbElE.className='orb';
     q('orbIco').textContent='⚠';
     q('orbLabel').textContent='Sync failed';
     q('orbSub').textContent='';
-    toast('toastMain', err.message, 'err');
-    if (err.message.includes('password')) clearS();
-    setTimeout(()=>{ if(q('orbIco')) q('orbIco').textContent='⇄'; if(q('orbLabel')) q('orbLabel').textContent='Try Again'; },2000);
+    toast('toastMain',err.message,'err');
+    if(err.message.includes('password'))clearSession();
+    setTimeout(()=>{
+      btn.classList.remove('error');
+      if(orb)orb.className='orb';
+      if(q('orbIco'))q('orbIco').textContent='⇄';
+      if(q('orbLabel'))q('orbLabel').textContent='Try Again';
+    },2200);
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────
-// Plan helpers
-// ─────────────────────────────────────────────────────────────────────
-const PRICING_URL = 'https://shahakshat14.github.io/relay-extension/pricing/';
-
-function updatePlanBadge(plan) {
-  const chip = q('mainChip');
-  if (!chip) return;
-  if (plan === 'pro') {
-    chip.textContent = 'PRO';
-    chip.style.background = 'rgba(67,97,238,0.1)';
-    chip.style.color = '#4361ee';
-    chip.style.borderColor = 'rgba(67,97,238,0.2)';
-  } else {
-    chip.textContent = 'FREE';
-    chip.style.background = 'rgba(45,198,83,0.09)';
-    chip.style.color = '#2dc653';
-    chip.style.borderColor = 'rgba(45,198,83,0.18)';
+function showStats(count, lastSync){
+  const stats=q('syncStats');
+  const scEl=q('statCount');
+  const stEl=q('statTime');
+  if(stats&&scEl&&stEl){
+    scEl.textContent=count>=0?count.toLocaleString():'—';
+    stEl.textContent=age(lastSync);
+    stats.classList.add('visible');
   }
-}
-
-function showUpgradePrompt() {
-  const el = q('upgradeRow');
-  if (el) { el.style.display = 'flex'; el.classList.add('upgrade-row'); }
 }
 
 // ─────────────────────────────────────────────────────────────────────
 // Go to main
 // ─────────────────────────────────────────────────────────────────────
-async function goMain(autoSync=false) {
-  const u = getU();
+async function goMain(autoSync=false){
+  const u=getU();
   show('vMain');
-  q('mainUsername').textContent = `@${u}`;
+  if(q('mainUsername'))q('mainUsername').textContent=`@${u}`;
+  await chrome.storage.local.set({hasAccount:true,username:u});
 
-  // BUG 2 FIX: Always persist so returning user stays signed in
-  await chrome.storage.local.set({ hasAccount: true, username: u });
+  const {lastSync,autoSync:aS,plan,bmCount}=
+    await chrome.storage.local.get(['lastSync','autoSync','plan','bmCount']);
 
-  const { lastSync, autoSync:aS, plan } =
-    await chrome.storage.local.get(['lastSync','autoSync','plan']);
-  q('chkAuto').checked = !!aS;
-  q('orbLabel').textContent = 'Sync Now';
-  q('orbSub').textContent   = lastSync ? `Last synced ${age(lastSync)}` : 'Ready — tap to sync';
+  q('chkAuto').checked=!!aS;
+  applyPlan(plan||'free');
 
-  // Restore plan badge from storage (so it shows even before sync)
-  updatePlanBadge(plan || 'free');
+  if(lastSync&&bmCount!=null){
+    showStats(bmCount,lastSync);
+    q('orbLabel').textContent='Sync Now';
+    q('orbSub').textContent=`Synced · ${age(lastSync)}`;
+  }else{
+    q('orbLabel').textContent='Sync Now';
+    q('orbSub').textContent='Tap to sync your bookmarks';
+  }
 
-  if (autoSync || (aS && (!lastSync || Date.now()-new Date(lastSync)>30_000)))
-    setTimeout(()=>runSync(getU(), getP()), 320);
+  const stale=!lastSync||(Date.now()-new Date(lastSync))>30_000;
+  if(autoSync||(aS&&stale))
+    setTimeout(()=>runSync(getU(),getP()),350);
 }
 
-// FIX [H3]: Pending sign-in — only persist credentials after successful sync
-async function goMainPending(autoSync=false) {
-  const u = getU();
+async function goMainPending(autoSync=false){
+  const u=getU();
   show('vMain');
-  q('mainUsername').textContent = `@${u}`;
-  q('chkAuto').checked = false;
-  q('orbLabel').textContent = 'Sync Now';
-  q('orbSub').textContent   = 'Tap to verify your credentials';
+  if(q('mainUsername'))q('mainUsername').textContent=`@${u}`;
+  q('chkAuto').checked=false;
+  q('orbLabel').textContent='Sync Now';
+  q('orbSub').textContent='Verifying your credentials…';
 
-  if (autoSync) {
-    setTimeout(async () => {
-      try {
-        await runSync(getU(), getP());
-        // Only persist after successful sync — credentials verified
-        await chrome.storage.local.set({ hasAccount: true, username: u });
-      } catch {
-        // runSync already shows the error — don't persist bad credentials
-      }
-    }, 320);
+  if(autoSync){
+    setTimeout(async()=>{
+      try{
+        await runSync(getU(),getP());
+        await chrome.storage.local.set({hasAccount:true,username:u});
+      }catch{}
+    },350);
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Events: Onboarding
+// Username check
 // ─────────────────────────────────────────────────────────────────────
-q('btnNewUser').addEventListener('click', ()=>show('vSetup'));
-q('btnReturning').addEventListener('click', ()=>show('vSignIn'));
+let uTimer=null,uGen=0,uValid=false;
 
-// ─────────────────────────────────────────────────────────────────────
-// Events: Setup
-// ─────────────────────────────────────────────────────────────────────
-q('btnBackSetup').addEventListener('click', ()=>show('vOnboard'));
+async function checkUsername(username){
+  const myGen=++uGen;
+  const sEl=q('unameStatus'),mEl=q('unameMsg'),iEl=q('unameIcon'),inp=q('unameInput');
+  const sugsEl=q('suggestions');
 
-q('unameInput').addEventListener('input', ()=>{
-  // Sanitise as user types — only allow valid chars, lowercase
-  const val = q('unameInput').value.toLowerCase().replace(/[^a-z0-9\-_]/g,'');
-  if (q('unameInput').value !== val) q('unameInput').value = val;
-  debouncedCheck(val);
-});
+  sEl.style.opacity='0';
+  sugsEl.style.display='none';
+  inp.classList.remove('valid','taken');
+  uValid=false;q('btnCreate').disabled=true;
+  if(!username)return;
 
-q('unameInput').addEventListener('keydown', e=>{
-  if (e.key==='Enter') q('passInput')?.focus();
-});
-
-q('passInput').addEventListener('input', ()=>{
-  renderStrength(q('passInput').value);
-  updateCreateBtn();
-});
-
-q('passEye').addEventListener('click', ()=>eyeBtn('passInput','passEye'));
-
-q('btnCreate').addEventListener('click', async ()=>{
-  const username = q('unameInput').value.trim();
-  const password = q('passInput').value;
-  if (!unameValid) { toast('toastSetup','Choose an available username.','err'); return; }
-  if (pwStrength(password) < 3) { toast('toastSetup','Password too weak — aim for Strong or better.','err'); return; }
-
-  q('btnCreate').disabled=true;
-  q('btnCreate').innerHTML='<span class="sp"></span> Creating…';
-
-  try {
-    // Double-check availability right before creating
-    const stillAvail = await checkUsernameAvailable(username);
-    if (!stillAvail) { toast('toastSetup','That username was just taken. Pick another.','err'); q('btnCreate').disabled=false; q('btnCreate').innerHTML='Create Account →'; return; }
-
-    await saveSession(username, password);
-    await chrome.storage.local.set({ hasAccount:true, username });
-    await goMain(true);
-  } catch(err) {
-    toast('toastSetup', err.message, 'err');
-    q('btnCreate').disabled=false;
-    q('btnCreate').innerHTML='Create Account →';
-  }
-});
-
-// ─────────────────────────────────────────────────────────────────────
-// Events: Main
-// ─────────────────────────────────────────────────────────────────────
-q('btnSync').addEventListener('click', ()=>{
-  const u=getU(), p=getP();
-  if (!u||!p) { show('vSignIn'); return; }
-  runSync(u, p);
-});
-
-q('btnSecurity').addEventListener('click', ()=>show('vSecurity'));
-
-q('btnUpgrade')?.addEventListener('click', ()=>{
-  chrome.tabs.create({ url: PRICING_URL });
-});
-
-q('upgradeRowBtn')?.addEventListener('click', ()=>{
-  chrome.tabs.create({ url: PRICING_URL });
-});
-q('chkAuto').addEventListener('change', e=>chrome.storage.local.set({autoSync:e.target.checked}));
-
-// ─────────────────────────────────────────────────────────────────────
-// Events: Security
-// ─────────────────────────────────────────────────────────────────────
-q('btnLock').addEventListener('click', ()=>{ clearS(); show('vSignIn'); });
-q('btnBackMain').addEventListener('click', ()=>show('vMain'));
-
-// ── Gift codes ────────────────────────────────────────────────────────
-q('btnShowGift')?.addEventListener('click', ()=>{
-  clrT('toastGift');
-  q('giftInput').value = '';
-  show('vGift');
-});
-
-q('btnBackGift')?.addEventListener('click', ()=>show('vSecurity'));
-
-q('giftInput')?.addEventListener('input', ()=>{
-  // Auto-format as XXXX-XXXX-XXXX
-  let val = q('giftInput').value.replace(/[^A-Z0-9]/gi,'').toUpperCase().slice(0,12);
-  if (val.length > 8)       val = val.slice(0,4)+'-'+val.slice(4,8)+'-'+val.slice(8);
-  else if (val.length > 4)  val = val.slice(0,4)+'-'+val.slice(4);
-  q('giftInput').value = val;
-});
-
-q('giftInput')?.addEventListener('keydown', e=>{
-  if (e.key==='Enter') q('btnRedeemGift').click();
-});
-
-q('btnRedeemGift')?.addEventListener('click', async ()=>{
-  const code = q('giftInput').value.trim().toUpperCase();
-  if (code.length < 14) { toast('toastGift','Enter a complete gift code.','err'); return; }
-
-  const btn = q('btnRedeemGift');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="sp"></span> Redeeming…';
-  clrT('toastGift');
-
-  try {
-    const u  = getU();
-    const vk = await vaultKey(u);
-
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/redeem_gift_code`, {
-      method: 'POST',
-      headers: {
-        'apikey':        SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
-        'Content-Type':  'application/json',
-      },
-      body: JSON.stringify({ p_code: code, p_vault_key: vk }),
-    });
-
-    const data = await res.json();
-
-    if (!data.success) {
-      toast('toastGift', data.error || 'Invalid code.', 'err');
-    } else {
-      await chrome.storage.local.set({ plan: 'pro' });
-      updatePlanBadge('pro');
-      toast('toastGift', `🎉 Pro activated for ${data.days} days!`, 'ok');
-      setTimeout(()=>show('vMain'), 2000);
+  const {ok,msg}=validateUsername(username);
+  if(!ok){
+    if(msg&&myGen===uGen){
+      sEl.className='uname-status taken';sEl.style.opacity='1';
+      mEl.textContent=msg;iEl.textContent='✗';inp.classList.add('taken');
     }
-  } catch(err) {
-    toast('toastGift', 'Something went wrong. Try again.', 'err');
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = 'Redeem →';
+    return;
   }
-});
 
-q('btnDeleteAccount')?.addEventListener('click', ()=>show('vDeleteConfirm'));
-q('btnDeleteCancel')?.addEventListener('click', ()=>show('vSecurity'));
+  sEl.className='uname-status checking';sEl.style.opacity='1';
+  mEl.textContent='Checking…';iEl.textContent='·';
 
-q('btnDeleteConfirm')?.addEventListener('click', async ()=>{
-  const btn = q('btnDeleteConfirm');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="sp"></span> Deleting…';
+  const avail=await checkUsernameAvailable(username);
+  if(myGen!==uGen)return;
 
-  try {
-    const u = getU();
-    const vaultId = await vaultKey(u);
-
-    // Delete vault from Supabase
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/vaults?vault_key=eq.${vaultId}`, {
-      method: 'DELETE',
-      headers: {
-        'apikey':        SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
-        'Content-Type':  'application/json',
-      },
+  if(avail){
+    sEl.className='uname-status ok';mEl.textContent=`@${username} is available ✓`;
+    iEl.textContent='✓';inp.classList.add('valid');uValid=true;updateCreate();
+  }else{
+    sEl.className='uname-status taken';mEl.textContent=`@${username} is taken`;
+    iEl.textContent='✗';inp.classList.add('taken');
+    // suggestions
+    const ADJS=['swift','calm','bold','bright','cool','deep','free','glad','kind','lone','neat','pure'];
+    const NOUNS=['panda','tiger','river','storm','cedar','ember','frost','grove','raven','stone','lark'];
+    const clean=username.replace(/[^a-z0-9]/gi,'').toLowerCase().slice(0,10)||'user';
+    const arr=new Uint32Array(4);crypto.getRandomValues(arr);
+    const sugs=[
+      `${clean}${(arr[0]%90)+10}`,
+      `${ADJS[arr[1]%ADJS.length]}-${clean}`,
+      `${clean}-${NOUNS[arr[2]%NOUNS.length]}`,
+      `${ADJS[arr[3]%ADJS.length]}-${NOUNS[arr[0]%NOUNS.length]}`,
+    ];
+    sugsEl.innerHTML=sugs.map(s=>`<button class="sug-btn" data-n="${s}">@${s}</button>`).join('');
+    sugsEl.style.display='flex';
+    sugsEl.querySelectorAll('.sug-btn').forEach(b=>{
+      b.addEventListener('click',()=>{
+        q('unameInput').value=b.dataset.n;
+        sugsEl.style.display='none';
+        clearTimeout(uTimer);checkUsername(b.dataset.n);
+      });
     });
-
-    if (!res.ok) throw new Error('Delete failed.');
-
-    // Clear all local state
-    clearS();
-    await chrome.storage.local.clear();
-
-    // Show confirmation then go to sign in
-    show('vDeleted');
-    setTimeout(()=>show('vSignIn'), 3000);
-
-  } catch(err) {
-    btn.disabled = false;
-    btn.innerHTML = 'Yes, delete everything';
-    toast('toastDelete', err.message, 'err');
   }
-});
+}
+
+function updateCreate(){
+  const pass=q('passInput')?.value||'';
+  const conf=q('passConfirm')?.value||'';
+  const match=pass&&conf&&pass===conf;
+  q('btnCreate').disabled=!(uValid&&pwStrength(pass)>=3&&match);
+}
 
 // ─────────────────────────────────────────────────────────────────────
-// Events: Sign In
+// Sign In events
 // ─────────────────────────────────────────────────────────────────────
-q('siEye').addEventListener('click', ()=>eyeBtn('siPassword','siEye'));
+q('siEye').addEventListener('click',()=>eye('siPassword','siEye'));
 
-q('btnSignIn').addEventListener('click', async ()=>{
-  const username = q('siUsername').value.trim().toLowerCase();
-  const password = q('siPassword').value.trim(); // FIX [M5]: trim trailing spaces
-  if (!username) { toast('toastSignIn','Enter your username.','err'); return; }
-  if (!password) { toast('toastSignIn','Enter your password.','err'); return; }
+// FIX [C4]: Keyboard navigation
+q('siUsername').addEventListener('keydown',e=>{if(e.key==='Enter')q('siPassword').focus();});
+q('siPassword').addEventListener('keydown',e=>{if(e.key==='Enter')q('btnSignIn').click();});
+
+q('btnSignIn').addEventListener('click',async()=>{
+  const username=q('siUsername').value.trim().toLowerCase();
+  const password=q('siPassword').value.trim();
+  if(!username){toast('toastSignIn','Enter your username.','err');return;}
+  if(!password){toast('toastSignIn','Enter your password.','err');return;}
 
   q('btnSignIn').disabled=true;
   q('btnSignIn').innerHTML='<span class="sp"></span> Signing in…';
 
-  await saveSession(username, password);
-  q('siUsername').value='';
-  q('siPassword').value='';
+  await saveSession(username,password);
+  q('siUsername').value='';q('siPassword').value='';
   await goMainPending(true);
 
   q('btnSignIn').disabled=false;
-  q('btnSignIn').innerHTML='Sign In &amp; Sync →';
+  q('btnSignIn').innerHTML='Sign In →';
 });
 
-['siUsername','siPassword'].forEach(id=>{
-  q(id).addEventListener('keydown', e=>{ if(e.key==='Enter') q('btnSignIn').click(); });
+q('btnNewUserSignIn').addEventListener('click',()=>{
+  // FIX [C2]: Pre-generate password before showing setup
+  const p=genPass();
+  q('genText').textContent=p;
+  q('passInput').value=p;
+  renderStrength(p);
+  show('vSetup');
 });
 
-q('btnNewUserSignIn').addEventListener('click', ()=>show('vSetup'));
+// ─────────────────────────────────────────────────────────────────────
+// Setup events
+// ─────────────────────────────────────────────────────────────────────
+// FIX [C3]: Back goes to sign in, not orphaned onboarding
+q('btnBackSetup').addEventListener('click',()=>show('vSignIn'));
+
+q('unameInput').addEventListener('input',()=>{
+  const v=q('unameInput').value.toLowerCase().replace(/[^a-z0-9\-_]/g,'');
+  if(q('unameInput').value!==v)q('unameInput').value=v;
+  clearTimeout(uTimer);uTimer=setTimeout(()=>checkUsername(v),480);
+  updateCreate();
+});
+q('unameInput').addEventListener('keydown',e=>{if(e.key==='Enter')q('passInput').focus();});
+
+q('passEye').addEventListener('click',()=>eye('passInput','passEye'));
+q('passConfirmEye').addEventListener('click',()=>eye('passConfirm','passConfirmEye'));
+
+q('passInput').addEventListener('input',()=>{
+  const p=q('passInput').value;
+  q('genText').textContent=p||'…';
+  renderStrength(p);
+  updateCreate();
+  checkPassMatch();
+});
+
+// FIX [C1]: Password confirm + live match check
+q('passConfirm').addEventListener('input',()=>{
+  checkPassMatch();updateCreate();
+});
+q('passConfirm').addEventListener('keydown',e=>{if(e.key==='Enter')q('btnCreate').click();});
+
+function checkPassMatch(){
+  const p=q('passInput').value, c=q('passConfirm').value;
+  const el=q('passMatchStatus');
+  if(!c){el.className='pass-match';return;}
+  if(p===c){
+    el.className='pass-match show ok';
+    el.innerHTML='<span>✓</span> Passwords match';
+  }else{
+    el.className='pass-match show fail';
+    el.innerHTML='<span>✗</span> Passwords don\'t match';
+  }
+}
+
+q('btnRefresh').addEventListener('click',()=>{
+  const p=genPass();
+  q('genText').textContent=p;
+  q('passInput').value=p;
+  q('passConfirm').value='';
+  q('passMatchStatus').className='pass-match';
+  renderStrength(p);updateCreate();
+});
+
+q('btnCopyGen').addEventListener('click',async()=>{
+  await navigator.clipboard.writeText(q('genText').textContent);
+  q('btnCopyGen').textContent='✓';
+  setTimeout(()=>q('btnCopyGen').textContent='⎘',1400);
+});
+
+q('btnCreate').addEventListener('click',async()=>{
+  const username=q('unameInput').value.trim();
+  const password=q('passInput').value;
+  const confirm=q('passConfirm').value;
+
+  if(!uValid){toast('toastSetup','Choose an available username.','err');return;}
+  if(pwStrength(password)<3){toast('toastSetup','Password is too weak — aim for Strong.','err');return;}
+  if(password!==confirm){toast('toastSetup','Passwords don\'t match.','err');return;}
+
+  q('btnCreate').disabled=true;
+  q('btnCreate').innerHTML='<span class="sp"></span> Creating…';
+
+  try{
+    const avail=await checkUsernameAvailable(username);
+    if(!avail){
+      toast('toastSetup','That username was just taken. Try another.','err');
+      q('btnCreate').disabled=false;q('btnCreate').innerHTML='Create Account →';return;
+    }
+    await saveSession(username,password);
+    await chrome.storage.local.set({hasAccount:true,username});
+
+    // FIX [H6]: Show welcome screen first
+    show('vWelcome');
+    setTimeout(async()=>{
+      await goMain(true);
+    },2200);
+  }catch(err){
+    toast('toastSetup',err.message,'err');
+    q('btnCreate').disabled=false;q('btnCreate').innerHTML='Create Account →';
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// Main events
+// ─────────────────────────────────────────────────────────────────────
+q('btnSync').addEventListener('click',()=>{
+  const u=getU(),p=getP();
+  if(!u||!p){show('vSignIn');return;}
+  runSync(u,p);
+});
+
+// Make whole account row clickable
+q('accountRow')?.addEventListener('click',()=>show('vSecurity'));
+q('btnSecurity').addEventListener('click',e=>{e.stopPropagation();show('vSecurity');});
+
+q('chkAuto').addEventListener('change',e=>{
+  chrome.storage.local.set({autoSync:e.target.checked});
+});
+
+q('upgradeAlertBtn')?.addEventListener('click',()=>chrome.tabs.create({url:PRICING_URL}));
+
+// ─────────────────────────────────────────────────────────────────────
+// Settings events
+// ─────────────────────────────────────────────────────────────────────
+q('btnBackMain').addEventListener('click',()=>show('vMain'));
+q('btnUpgrade')?.addEventListener('click',()=>chrome.tabs.create({url:PRICING_URL}));
+q('upgTeaser')?.addEventListener('click',()=>chrome.tabs.create({url:PRICING_URL}));
+
+q('btnShowGift')?.addEventListener('click',()=>{
+  clrT('toastGift');q('giftInput').value='';show('vGift');
+});
+
+q('btnLock').addEventListener('click',()=>{clearSession();show('vSignIn');});
+q('btnDeleteAccount')?.addEventListener('click',()=>show('vDeleteConfirm'));
+
+// ─────────────────────────────────────────────────────────────────────
+// Gift code events
+// ─────────────────────────────────────────────────────────────────────
+q('btnBackGift')?.addEventListener('click',()=>show('vSecurity'));
+
+// FIX [M4]: Auto-format with dashes + paste detection
+q('giftInput')?.addEventListener('input',()=>{
+  let v=q('giftInput').value.replace(/[^A-Z0-9]/gi,'').toUpperCase().slice(0,12);
+  if(v.length>8)      v=v.slice(0,4)+'-'+v.slice(4,8)+'-'+v.slice(8);
+  else if(v.length>4) v=v.slice(0,4)+'-'+v.slice(4);
+  q('giftInput').value=v;
+});
+q('giftInput')?.addEventListener('keydown',e=>{if(e.key==='Enter')q('btnRedeemGift').click();});
+
+q('btnRedeemGift')?.addEventListener('click',async()=>{
+  const code=q('giftInput').value.trim().toUpperCase();
+  if(code.length<14){toast('toastGift','Enter a complete gift code (XXXX-XXXX-XXXX).','err');return;}
+
+  const btn=q('btnRedeemGift');
+  btn.disabled=true;btn.innerHTML='<span class="sp"></span> Redeeming…';
+  clrT('toastGift');
+
+  try{
+    const u=getU(), vk=await vaultKey(u);
+    const res=await fetch(`${SUPABASE_URL}/rest/v1/rpc/redeem_gift_code`,{
+      method:'POST',
+      headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`,'Content-Type':'application/json'},
+      body:JSON.stringify({p_code:code,p_vault_key:vk}),
+    });
+    const data=await res.json();
+    if(!data.success){
+      toast('toastGift',data.error||'Invalid code.','err');
+    }else{
+      await chrome.storage.local.set({plan:'pro'});
+      applyPlan('pro');
+      toast('toastGift',`🎉 Pro activated for ${data.days} days!`,'ok');
+      setTimeout(()=>show('vSecurity'),2000);
+    }
+  }catch{
+    toast('toastGift','Something went wrong. Try again.','err');
+  }finally{
+    btn.disabled=false;btn.innerHTML='Redeem →';
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// Delete account events
+// ─────────────────────────────────────────────────────────────────────
+q('btnDeleteCancel')?.addEventListener('click',()=>show('vSecurity'));
+
+q('btnDeleteConfirm')?.addEventListener('click',async()=>{
+  const btn=q('btnDeleteConfirm');
+  btn.disabled=true;btn.innerHTML='<span class="sp"></span> Deleting…';
+  try{
+    const vk=await vaultKey(getU());
+    const res=await fetch(`${SUPABASE_URL}/rest/v1/vaults?vault_key=eq.${vk}`,{
+      method:'DELETE',
+      headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`},
+    });
+    if(!res.ok)throw new Error('Delete failed.');
+    await clearSession();
+    await chrome.storage.local.clear();
+    show('vDeleted');
+    setTimeout(()=>show('vSignIn'),3000);
+  }catch(err){
+    btn.disabled=false;btn.innerHTML='Delete my account';
+    toast('toastDelete',err.message,'err');
+  }
+});
 
 // ─────────────────────────────────────────────────────────────────────
 // Init
 // ─────────────────────────────────────────────────────────────────────
-async function init() {
-  // Load session from background worker first
+async function init(){
   await loadSession();
-
-  const { hasAccount } = await chrome.storage.local.get('hasAccount');
-
-  if (!hasAccount) { show('vSignIn'); return; }
-
-  const u = getU(), p = getP();
-  if (!u || !p) { show('vSignIn'); return; }
-
+  const {hasAccount}=await chrome.storage.local.get('hasAccount');
+  if(!hasAccount){show('vSignIn');return;}
+  const u=getU(),p=getP();
+  if(!u||!p){show('vSignIn');return;}
   await goMain();
 }
 
