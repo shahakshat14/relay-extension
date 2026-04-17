@@ -103,13 +103,35 @@ function renderStrength(p) {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Session (clears on browser close)
+// Session — stored in background service worker.
+// Survives popup open/close. Clears when browser fully closes.
 // ─────────────────────────────────────────────────────────────────────
-const getU   = ()  => sessionStorage.getItem('relay_u');
-const setU   = v   => sessionStorage.setItem('relay_u', v);
-const getP   = ()  => sessionStorage.getItem('relay_p');
-const setP   = v   => sessionStorage.setItem('relay_p', v);
-const clearS = ()  => { sessionStorage.removeItem('relay_u'); sessionStorage.removeItem('relay_p'); };
+let _sessionU = null;
+let _sessionP = null;
+
+async function loadSession() {
+  try {
+    const resp = await chrome.runtime.sendMessage({ type: 'SESSION_GET' });
+    _sessionU = resp.u;
+    _sessionP = resp.p;
+  } catch { _sessionU = null; _sessionP = null; }
+}
+
+async function saveSession(u, p) {
+  _sessionU = u; _sessionP = p;
+  try { await chrome.runtime.sendMessage({ type: 'SESSION_SET', u, p }); } catch {}
+}
+
+async function clearSession() {
+  _sessionU = null; _sessionP = null;
+  try { await chrome.runtime.sendMessage({ type: 'SESSION_CLEAR' }); } catch {}
+}
+
+const getU   = () => _sessionU;
+const getP   = () => _sessionP;
+const setU   = v  => { _sessionU = v; };
+const setP   = v  => { _sessionP = v; };
+const clearS = () => clearSession();
 
 // ─────────────────────────────────────────────────────────────────────
 // UI helpers
@@ -392,10 +414,9 @@ q('btnCreate').addEventListener('click', async ()=>{
     const stillAvail = await checkUsernameAvailable(username);
     if (!stillAvail) { toast('toastSetup','That username was just taken. Pick another.','err'); q('btnCreate').disabled=false; q('btnCreate').innerHTML='Create Account →'; return; }
 
-    setU(username);
-    setP(password);
+    await saveSession(username, password);
     await chrome.storage.local.set({ hasAccount:true, username });
-    await goMain(true); // auto-sync on first create
+    await goMain(true);
   } catch(err) {
     toast('toastSetup', err.message, 'err');
     q('btnCreate').disabled=false;
@@ -544,12 +565,9 @@ q('btnSignIn').addEventListener('click', async ()=>{
   q('btnSignIn').disabled=true;
   q('btnSignIn').innerHTML='<span class="sp"></span> Signing in…';
 
-  setU(username);
-  setP(password);
+  await saveSession(username, password);
   q('siUsername').value='';
   q('siPassword').value='';
-  // FIX [H3]: Don't persist hasAccount until sync confirms credentials are correct
-  // goMain(true) will trigger sync which sets hasAccount on success
   await goMainPending(true);
 
   q('btnSignIn').disabled=false;
@@ -566,10 +584,11 @@ q('btnNewUserSignIn').addEventListener('click', ()=>show('vSetup'));
 // Init
 // ─────────────────────────────────────────────────────────────────────
 async function init() {
+  // Load session from background worker first
+  await loadSession();
+
   const { hasAccount } = await chrome.storage.local.get('hasAccount');
 
-  // No account on this browser → default to sign-in
-  // (primary use case = existing user on new browser)
   if (!hasAccount) { show('vSignIn'); return; }
 
   const u = getU(), p = getP();
