@@ -303,6 +303,8 @@ let uTimer=null,uGen=0,uValid=false;
 async function checkUsername(username){
   const myGen=++uGen;
   const sEl=q('unameStatus'),mEl=q('unameMsg'),iEl=q('unameIcon'),inp=q('unameInput');
+  // unameIcon is optional (removed in v4.6 redesign)
+  const setIcon = (txt) => { if (iEl) iEl.textContent = txt; };
   const sugsEl=q('suggestions');
 
   sEl.style.opacity='0';
@@ -315,23 +317,23 @@ async function checkUsername(username){
   if(!ok){
     if(msg&&myGen===uGen){
       sEl.className='uname-status taken';sEl.style.opacity='1';
-      mEl.textContent=msg;iEl.textContent='✗';inp.classList.add('taken');
+      mEl.textContent=msg;setIcon('✗');inp.classList.add('taken');
     }
     return;
   }
 
   sEl.className='uname-status checking';sEl.style.opacity='1';
-  mEl.textContent='Checking…';iEl.textContent='·';
+  mEl.textContent='Checking…';setIcon('·');
 
   const avail=await checkUsernameAvailable(username);
   if(myGen!==uGen)return;
 
   if(avail){
     sEl.className='uname-status ok';mEl.textContent=`@${username} is available ✓`;
-    iEl.textContent='✓';inp.classList.add('valid');uValid=true;updateCreate();
+    setIcon('✓');inp.classList.add('valid');uValid=true;updateCreate();
   }else{
     sEl.className='uname-status taken';mEl.textContent=`@${username} is taken`;
-    iEl.textContent='✗';inp.classList.add('taken');
+    setIcon('✗');inp.classList.add('taken');
     // suggestions
     const ADJS=['swift','calm','bold','bright','cool','deep','free','glad','kind','lone','neat','pure'];
     const NOUNS=['panda','tiger','river','storm','cedar','ember','frost','grove','raven','stone','lark'];
@@ -499,7 +501,7 @@ q('btnSync').addEventListener('click',()=>{
 
 // Make whole account row clickable
 q('accountRow')?.addEventListener('click',()=>show('vSecurity'));
-q('btnSecurity').addEventListener('click',e=>{e.stopPropagation();show('vSecurity');});
+q('btnSecurity')?.addEventListener('click',e=>{e.stopPropagation();show('vSecurity');});
 
 q('chkAuto').addEventListener('change',e=>{
   chrome.storage.local.set({autoSync:e.target.checked});
