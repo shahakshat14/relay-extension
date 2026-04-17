@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Relay Admin</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, sans-serif;
+  background: #0f0f12; color: #f0f0f0;
+  min-height: 100vh; padding: 40px 20px;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 640px; margin: 0 auto; }
+h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+.sub { font-size: 13px; color: #60606a; margin-bottom: 32px; }
+
+.card {
+  background: #1a1a24; border: 1px solid rgba(255,255,255,.08);
+  border-radius: 14px; padding: 24px; margin-bottom: 16px;
+}
+.card h2 { font-size: 15px; font-weight: 600; margin-bottom: 16px; }
+
+.row { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+
+.inp {
+  flex: 1; min-width: 140px; padding: 10px 13px;
+  background: #0f0f12; border: 1px solid rgba(255,255,255,.1);
+  border-radius: 9px; color: #f0f0f0; font-size: 13.5px;
+  font-family: inherit; outline: none;
+  transition: border-color .15s;
+}
+.inp:focus { border-color: rgba(67,97,238,.5); }
+.inp::placeholder { color: #404048; }
+
+.btn {
+  padding: 10px 18px; border: none; border-radius: 9px;
+  font-size: 13.5px; font-weight: 600; cursor: pointer;
+  font-family: inherit; transition: all .15s; white-space: nowrap;
+}
+.btn-blue { background: #4361ee; color: #fff; }
+.btn-blue:hover { background: #3451d1; }
+.btn-blue:disabled { opacity: .4; cursor: default; }
+
+.codes-list {
+  display: flex; flex-direction: column; gap: 8px; margin-top: 16px;
+}
+
+.code-item {
+  display: flex; align-items: center; gap: 10px;
+  background: #0f0f12; border: 1px solid rgba(255,255,255,.07);
+  border-radius: 9px; padding: 10px 13px;
+}
+.code-val {
+  font-family: ui-monospace, monospace; font-size: 15px;
+  font-weight: 700; letter-spacing: 2px; flex: 1; color: #4361ee;
+}
+.code-meta { font-size: 11px; color: #60606a; white-space: nowrap; }
+.code-used { opacity: .4; }
+.copy-btn {
+  background: none; border: none; cursor: pointer;
+  font-size: 12px; color: #4361ee; padding: 0; font-family: inherit;
+}
+.copy-btn:hover { opacity: .7; }
+
+.tag {
+  font-size: 10px; font-weight: 600; padding: 2px 7px;
+  border-radius: 20px; white-space: nowrap;
+}
+.tag-free { background: rgba(45,198,83,.12); color: #2dc653; }
+.tag-used { background: rgba(255,255,255,.06); color: #60606a; }
+
+.toast-g {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  background: #1a1a24; border: 1px solid rgba(255,255,255,.1);
+  border-radius: 10px; padding: 10px 18px; font-size: 13px;
+  display: none; white-space: nowrap;
+}
+.toast-g.show { display: block; animation: fadeUp .2s ease; }
+@keyframes fadeUp { from{opacity:0;transform:translateX(-50%) translateY(6px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
+
+/* Password gate */
+.gate {
+  max-width: 320px; margin: 120px auto;
+  text-align: center;
+}
+.gate h2 { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+.gate p  { font-size: 13px; color: #60606a; margin-bottom: 20px; }
+
+.sp { display:inline-block; width:12px; height:12px; border:2px solid rgba(255,255,255,.2); border-top-color:#fff; border-radius:50%; animation:spin .65s linear infinite; margin-right:6px; }
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<!-- Password gate — simple protection -->
+<div id="gate" class="gate">
+  <h2>🔐 Relay Admin</h2>
+  <p>Enter your admin password to continue.</p>
+  <input class="inp" id="gateInput" type="password" placeholder="Admin password…" style="width:100%;margin-bottom:10px;text-align:center">
+  <button class="btn btn-blue" style="width:100%" onclick="checkGate()">Enter</button>
+  <div id="gateErr" style="font-size:12px;color:#e63946;margin-top:8px"></div>
+</div>
+
+<div id="app" style="display:none">
+<div class="wrap">
+  <h1>Relay Admin</h1>
+  <div class="sub">Generate and manage gift codes</div>
+
+  <!-- Generate codes -->
+  <div class="card">
+    <h2>Generate Gift Codes</h2>
+    <div class="row">
+      <input class="inp" id="numCodes" type="number" value="1" min="1" max="50" placeholder="Count" style="max-width:80px">
+      <input class="inp" id="codeDays" type="number" value="365" min="1" placeholder="Days" style="max-width:100px">
+      <input class="inp" id="codeNote" type="text" placeholder="Note (e.g. for John)" style="flex:2">
+      <button class="btn btn-blue" id="btnGenerate" onclick="generateCodes()">Generate</button>
+    </div>
+    <div id="newCodes" class="codes-list"></div>
+  </div>
+
+  <!-- All codes -->
+  <div class="card">
+    <h2>All Codes</h2>
+    <div class="row" style="margin-bottom:0">
+      <input class="inp" id="filterInput" placeholder="Search codes or notes…" oninput="filterCodes()">
+    </div>
+    <div id="allCodes" class="codes-list"></div>
+  </div>
+</div>
+</div>
+
+<div class="toast-g" id="toastG"></div>
+
+<script>
+const SUPABASE_URL      = 'https://mgeiplftbehngfsqtbiq.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_3BVQxcUH_AljAaamBNrhBA_7knbqxFI';
+
+// Simple admin password — change this to something only you know
+// This is just a client-side gate, not true security — the real security
+// is that only you know this page exists
+const ADMIN_PASSWORD = 'Chandler@123'; // ← CHANGE THIS
+
+let allCodesData = [];
+
+function checkGate() {
+  const val = document.getElementById('gateInput').value;
+  if (val === ADMIN_PASSWORD) {
+    document.getElementById('gate').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    loadCodes();
+  } else {
+    document.getElementById('gateErr').textContent = 'Wrong password.';
+  }
+}
+
+document.getElementById('gateInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') checkGate();
+});
+
+async function sb(method, path, body) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    method,
+    headers: {
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation',
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
+
+function randomCode() {
+  // Format: XXXX-XXXX-XXXX — easy to read and share
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no confusable chars
+  const seg = () => Array.from(crypto.getRandomValues(new Uint8Array(4)))
+    .map(b => chars[b % chars.length]).join('');
+  return `${seg()}-${seg()}-${seg()}`;
+}
+
+async function generateCodes() {
+  const count = parseInt(document.getElementById('numCodes').value) || 1;
+  const days  = parseInt(document.getElementById('codeDays').value) || 365;
+  const note  = document.getElementById('codeNote').value.trim();
+
+  const btn = document.getElementById('btnGenerate');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="sp"></span>';
+
+  const codes = Array.from({length: count}, () => ({
+    code: randomCode(),
+    duration_days: days,
+    note: note || null,
+  }));
+
+  const result = await sb('POST', 'gift_codes', codes);
+
+  btn.disabled = false;
+  btn.textContent = 'Generate';
+
+  if (!result) { showToast('Error generating codes'); return; }
+
+  // Show new codes prominently
+  const el = document.getElementById('newCodes');
+  el.innerHTML = result.map(c => codeHTML(c, true)).join('');
+
+  showToast(`✓ ${count} code${count===1?'':'s'} generated`);
+  loadCodes();
+}
+
+function codeHTML(c, highlight=false) {
+  const used = !!c.redeemed_at;
+  const date = new Date(c.created_at).toLocaleDateString();
+  return `
+    <div class="code-item ${used ? 'code-used' : ''}" style="${highlight ? 'border-color:rgba(67,97,238,.3);background:rgba(67,97,238,.06)' : ''}">
+      <span class="code-val">${c.code}</span>
+      <span class="code-meta">${c.duration_days}d · ${date}${c.note ? ` · ${c.note}` : ''}</span>
+      <span class="tag ${used ? 'tag-used' : 'tag-free'}">${used ? 'Used' : 'Active'}</span>
+      ${!used ? `<button class="copy-btn" onclick="copyCode('${c.code}')">Copy</button>` : ''}
+    </div>`;
+}
+
+async function loadCodes() {
+  const data = await sb('GET', 'gift_codes?order=created_at.desc&select=*');
+  allCodesData = data || [];
+  renderCodes(allCodesData);
+}
+
+function renderCodes(codes) {
+  document.getElementById('allCodes').innerHTML =
+    codes.length ? codes.map(c => codeHTML(c)).join('') :
+    '<div style="font-size:13px;color:#404048;padding:12px 0">No codes yet.</div>';
+}
+
+function filterCodes() {
+  const q = document.getElementById('filterInput').value.toLowerCase();
+  renderCodes(allCodesData.filter(c =>
+    c.code.toLowerCase().includes(q) ||
+    (c.note||'').toLowerCase().includes(q)
+  ));
+}
+
+async function copyCode(code) {
+  await navigator.clipboard.writeText(code);
+  showToast(`Copied ${code}`);
+}
+
+function showToast(msg) {
+  const el = document.getElementById('toastG');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2200);
+}
+</script>
+</body>
+</html>

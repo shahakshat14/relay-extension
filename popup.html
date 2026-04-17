@@ -395,6 +395,7 @@ body{
   </div>
   <div class="div"></div>
   <button class="btn btn-blue" id="btnUpgrade" style="background:#4361ee">⚡ Upgrade to Pro — $18/year</button>
+  <button class="btn btn-ghost" id="btnShowGift" style="color:var(--blue);border-color:rgba(67,97,238,.2)">🎁 Redeem a gift code</button>
   <button class="btn btn-ghost" id="btnLock">🔒 Sign out of this browser</button>
   <button class="btn btn-ghost" style="color:#e63946;border-color:rgba(230,57,70,.2)" id="btnDeleteAccount">Delete account</button>
   <button class="btn btn-ghost" id="btnBackMain">← Back</button>
@@ -425,6 +426,27 @@ body{
     <button class="btn btn-text" id="btnNewUserSignIn">New to Relay? Create account →</button>
   </div>
   <div class="toast" id="toastSignIn"></div>
+</div>
+
+<!-- ══ GIFT CODE ══════════════════════════════════════ -->
+<div id="vGift" class="view">
+  <div class="wm">
+    <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M4 8h12M16 8l-3-3M16 8l-3 3" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M20 16H8M8 16l3-3M8 16l3 3" stroke="rgba(255,255,255,.65)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    <span class="wm-name">Relay</span>
+  </div>
+  <div class="su-head">
+    <div class="su-illo" style="background:rgba(67,97,238,.08);border-color:rgba(67,97,238,.15)">🎁</div>
+    <div class="su-title">Redeem gift code</div>
+    <div class="su-sub">Enter your gift code to activate Relay Pro.</div>
+  </div>
+  <div class="inp-wrap">
+    <input class="inp" id="giftInput" type="text" placeholder="XXXX-XXXX-XXXX"
+      autocomplete="off" spellcheck="false" autocapitalize="characters"
+      style="font-family:ui-monospace,monospace;font-size:16px;font-weight:700;letter-spacing:2px;text-align:center;text-transform:uppercase">
+  </div>
+  <button class="btn btn-blue" id="btnRedeemGift">Redeem →</button>
+  <button class="btn btn-ghost" id="btnBackGift">← Back</button>
+  <div class="toast" id="toastGift"></div>
 </div>
 
 <!-- ══ DELETE CONFIRM ══════════════════════════════════ -->

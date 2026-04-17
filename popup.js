@@ -429,6 +429,68 @@ q('chkAuto').addEventListener('change', e=>chrome.storage.local.set({autoSync:e.
 q('btnLock').addEventListener('click', ()=>{ clearS(); show('vSignIn'); });
 q('btnBackMain').addEventListener('click', ()=>show('vMain'));
 
+// ── Gift codes ────────────────────────────────────────────────────────
+q('btnShowGift')?.addEventListener('click', ()=>{
+  clrT('toastGift');
+  q('giftInput').value = '';
+  show('vGift');
+});
+
+q('btnBackGift')?.addEventListener('click', ()=>show('vSecurity'));
+
+q('giftInput')?.addEventListener('input', ()=>{
+  // Auto-format as XXXX-XXXX-XXXX
+  let val = q('giftInput').value.replace(/[^A-Z0-9]/gi,'').toUpperCase().slice(0,12);
+  if (val.length > 8)       val = val.slice(0,4)+'-'+val.slice(4,8)+'-'+val.slice(8);
+  else if (val.length > 4)  val = val.slice(0,4)+'-'+val.slice(4);
+  q('giftInput').value = val;
+});
+
+q('giftInput')?.addEventListener('keydown', e=>{
+  if (e.key==='Enter') q('btnRedeemGift').click();
+});
+
+q('btnRedeemGift')?.addEventListener('click', async ()=>{
+  const code = q('giftInput').value.trim().toUpperCase();
+  if (code.length < 14) { toast('toastGift','Enter a complete gift code.','err'); return; }
+
+  const btn = q('btnRedeemGift');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="sp"></span> Redeeming…';
+  clrT('toastGift');
+
+  try {
+    const u  = getU();
+    const vk = await vaultKey(u);
+
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/redeem_gift_code`, {
+      method: 'POST',
+      headers: {
+        'apikey':        SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type':  'application/json',
+      },
+      body: JSON.stringify({ p_code: code, p_vault_key: vk }),
+    });
+
+    const data = await res.json();
+
+    if (!data.success) {
+      toast('toastGift', data.error || 'Invalid code.', 'err');
+    } else {
+      await chrome.storage.local.set({ plan: 'pro' });
+      updatePlanBadge('pro');
+      toast('toastGift', `🎉 Pro activated for ${data.days} days!`, 'ok');
+      setTimeout(()=>show('vMain'), 2000);
+    }
+  } catch(err) {
+    toast('toastGift', 'Something went wrong. Try again.', 'err');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = 'Redeem →';
+  }
+});
+
 q('btnDeleteAccount')?.addEventListener('click', ()=>show('vDeleteConfirm'));
 q('btnDeleteCancel')?.addEventListener('click', ()=>show('vSecurity'));
 
