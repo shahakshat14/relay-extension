@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Relay Pro — Private Bookmark Sync</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --blue:    #4361ee;
+    --blue-d:  #3451d1;
+    --green:   #2dc653;
+    --t1:      #0f0f12;
+    --t2:      #60606a;
+    --bg:      #f7f7f8;
+    --card:    #ffffff;
+    --bdr:     rgba(0,0,0,0.08);
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+    background: var(--bg); color: var(--t1);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .nav {
+    display: flex; align-items: center; gap: 10px;
+    padding: 20px 40px; max-width: 900px; margin: 0 auto;
+  }
+
+  .nav-logo {
+    width: 32px; height: 32px; border-radius: 9px;
+    background: var(--blue);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 8px rgba(67,97,238,.3);
+  }
+
+  .nav-logo svg { width: 18px; height: 18px; }
+  .nav-name { font-size: 16px; font-weight: 700; letter-spacing: -.3px; }
+
+  .hero {
+    text-align: center;
+    padding: 60px 20px 40px;
+    max-width: 600px; margin: 0 auto;
+  }
+
+  .hero-tag {
+    display: inline-block; font-size: 12px; font-weight: 600;
+    letter-spacing: .5px; text-transform: uppercase;
+    background: rgba(67,97,238,.09); color: var(--blue);
+    border: 1px solid rgba(67,97,238,.18); border-radius: 20px;
+    padding: 4px 12px; margin-bottom: 18px;
+  }
+
+  .hero h1 {
+    font-size: 42px; font-weight: 800; letter-spacing: -.8px;
+    line-height: 1.1; margin-bottom: 16px;
+  }
+
+  .hero p {
+    font-size: 17px; color: var(--t2); line-height: 1.65;
+    margin-bottom: 40px;
+  }
+
+  /* Pricing cards */
+  .plans {
+    display: flex; gap: 16px; justify-content: center;
+    flex-wrap: wrap; padding: 0 20px 60px;
+    max-width: 780px; margin: 0 auto;
+  }
+
+  .plan {
+    flex: 1; min-width: 280px; max-width: 340px;
+    background: var(--card); border: 1.5px solid var(--bdr);
+    border-radius: 18px; padding: 28px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.05);
+  }
+
+  .plan.featured {
+    border-color: rgba(67,97,238,.3);
+    box-shadow: 0 1px 3px rgba(0,0,0,.06), 0 4px 24px rgba(67,97,238,.12);
+  }
+
+  .plan-tag {
+    font-size: 10px; font-weight: 700; letter-spacing: .5px;
+    text-transform: uppercase; padding: 3px 9px; border-radius: 20px;
+    background: var(--blue); color: #fff;
+    display: inline-block; margin-bottom: 16px;
+  }
+
+  .plan-name { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+  .plan-desc { font-size: 13.5px; color: var(--t2); margin-bottom: 20px; line-height: 1.5; }
+
+  .plan-price {
+    display: flex; align-items: baseline; gap: 4px;
+    margin-bottom: 4px;
+  }
+
+  .price-amt  { font-size: 42px; font-weight: 800; letter-spacing: -1px; }
+  .price-per  { font-size: 14px; color: var(--t2); }
+  .price-year { font-size: 12px; color: var(--t2); margin-bottom: 24px; }
+
+  .features { list-style: none; margin-bottom: 28px; display: flex; flex-direction: column; gap: 10px; }
+
+  .features li {
+    display: flex; align-items: flex-start; gap: 10px;
+    font-size: 13.5px; color: var(--t1);
+  }
+
+  .features li .chk {
+    width: 18px; height: 18px; border-radius: 50%;
+    background: rgba(45,198,83,.1); color: var(--green);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; flex-shrink: 0; margin-top: 1px;
+  }
+
+  .features li.dim { color: var(--t2); }
+  .features li.dim .chk { background: rgba(0,0,0,.05); color: var(--t2); }
+
+  .btn-plan {
+    width: 100%; padding: 13px;
+    border: none; border-radius: 12px;
+    font-size: 15px; font-weight: 600; cursor: pointer;
+    font-family: inherit; transition: all .18s;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+
+  .btn-plan.primary {
+    background: var(--blue); color: #fff;
+    box-shadow: 0 2px 8px rgba(67,97,238,.3);
+  }
+  .btn-plan.primary:hover { background: var(--blue-d); transform: translateY(-1px); box-shadow: 0 4px 16px rgba(67,97,238,.4); }
+  .btn-plan.primary:disabled { opacity: .6; cursor: default; transform: none; }
+
+  .btn-plan.ghost {
+    background: transparent; color: var(--t2);
+    border: 1.5px solid var(--bdr);
+  }
+  .btn-plan.ghost:hover { color: var(--t1); border-color: rgba(0,0,0,.15); }
+
+  /* Username input section */
+  .checkout-section {
+    max-width: 400px; margin: 0 auto 60px;
+    padding: 0 20px; display: none;
+  }
+
+  .checkout-section.visible { display: block; animation: up .2s ease; }
+  @keyframes up { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+
+  .checkout-card {
+    background: var(--card); border: 1.5px solid var(--bdr);
+    border-radius: 18px; padding: 28px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.05);
+  }
+
+  .checkout-title { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+  .checkout-sub   { font-size: 13px; color: var(--t2); margin-bottom: 20px; line-height: 1.5; }
+
+  .inp {
+    width: 100%; padding: 12px 14px;
+    background: var(--bg); border: 1.5px solid var(--bdr);
+    border-radius: 10px; font-size: 14px; font-family: inherit;
+    color: var(--t1); outline: none; margin-bottom: 10px;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .inp:focus { border-color: rgba(67,97,238,.4); box-shadow: 0 0 0 3px rgba(67,97,238,.1); }
+  .inp::placeholder { color: #b0b0b8; }
+
+  .checkout-note {
+    font-size: 12px; color: var(--t2); text-align: center;
+    margin-top: 10px; line-height: 1.6;
+  }
+
+  .status-msg {
+    font-size: 12.5px; padding: 9px 12px; border-radius: 9px;
+    margin-bottom: 10px; display: none;
+  }
+  .status-msg.err { background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; display: block; }
+  .status-msg.ok  { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; display: block; }
+
+  /* FAQ */
+  .faq {
+    max-width: 600px; margin: 0 auto 80px; padding: 0 20px;
+  }
+  .faq h2 { font-size: 24px; font-weight: 700; text-align: center; margin-bottom: 24px; }
+  .faq-item { border-bottom: 1px solid var(--bdr); padding: 16px 0; }
+  .faq-q { font-size: 14.5px; font-weight: 600; margin-bottom: 7px; }
+  .faq-a { font-size: 13.5px; color: var(--t2); line-height: 1.65; }
+
+  /* Spinner */
+  .sp { display:inline-block; width:14px; height:14px; border:2px solid rgba(255,255,255,.3); border-top-color:#fff; border-radius:50%; animation:spin .65s linear infinite; }
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  footer {
+    text-align: center; padding: 24px;
+    font-size: 12px; color: var(--t2);
+    border-top: 1px solid var(--bdr);
+  }
+  footer a { color: var(--blue); text-decoration: none; }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-logo">
+    <svg viewBox="0 0 24 24" fill="none">
+      <path d="M4 8h12M16 8l-3-3M16 8l-3 3" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M20 16H8M8 16l3-3M8 16l3 3" stroke="rgba(255,255,255,.65)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+  <span class="nav-name">Relay</span>
+</nav>
+
+<div class="hero">
+  <div class="hero-tag">Relay Pro</div>
+  <h1>Your bookmarks,<br>everywhere. Always.</h1>
+  <p>Upgrade for unlimited browsers, unlimited bookmarks, auto-sync, and sync history. End-to-end encrypted — we still can't read them.</p>
+</div>
+
+<div class="plans">
+  <!-- Free -->
+  <div class="plan">
+    <div class="plan-name">Free</div>
+    <div class="plan-desc">Everything you need to get started.</div>
+    <div class="plan-price"><span class="price-amt">$0</span></div>
+    <div class="price-year">Forever free</div>
+    <ul class="features">
+      <li><span class="chk">✓</span>Sync across 2 browsers</li>
+      <li><span class="chk">✓</span>Up to 500 bookmarks</li>
+      <li><span class="chk">✓</span>Manual sync</li>
+      <li><span class="chk">✓</span>End-to-end encrypted</li>
+      <li class="dim"><span class="chk">—</span>More than 2 browsers</li>
+      <li class="dim"><span class="chk">—</span>Unlimited bookmarks</li>
+      <li class="dim"><span class="chk">—</span>Auto-sync</li>
+      <li class="dim"><span class="chk">—</span>Sync history</li>
+    </ul>
+    <button class="btn-plan ghost" onclick="document.querySelector('.checkout-section').classList.remove('visible')">
+      Current plan
+    </button>
+  </div>
+
+  <!-- Pro -->
+  <div class="plan featured">
+    <div class="plan-tag">Most popular</div>
+    <div class="plan-name">Pro</div>
+    <div class="plan-desc">For people who live in their bookmarks.</div>
+    <div class="plan-price">
+      <span class="price-amt">$2</span>
+      <span class="price-per">/month</span>
+    </div>
+    <div class="price-year">$18/year — save 25%</div>
+    <ul class="features">
+      <li><span class="chk">✓</span>Unlimited browsers</li>
+      <li><span class="chk">✓</span>Unlimited bookmarks</li>
+      <li><span class="chk">✓</span>Auto-sync on bookmark change</li>
+      <li><span class="chk">✓</span>30-day sync history</li>
+      <li><span class="chk">✓</span>Multiple vaults</li>
+      <li><span class="chk">✓</span>Priority support</li>
+      <li><span class="chk">✓</span>End-to-end encrypted</li>
+    </ul>
+    <button class="btn-plan primary" id="btnUpgrade" onclick="showCheckout()">
+      Upgrade to Pro →
+    </button>
+  </div>
+</div>
+
+<!-- Checkout section -->
+<div class="checkout-section" id="checkoutSection">
+  <div class="checkout-card">
+    <div class="checkout-title">Enter your Relay username</div>
+    <div class="checkout-sub">We'll link your Pro subscription to your vault. No email needed — just your username.</div>
+    <div class="status-msg" id="statusMsg"></div>
+    <input class="inp" id="usernameInput" type="text" placeholder="Your Relay username…"
+      autocomplete="off" spellcheck="false" autocorrect="off" autocapitalize="off">
+    <button class="btn-plan primary" id="btnCheckout" onclick="startCheckout()">
+      Continue to Payment →
+    </button>
+    <div class="checkout-note">
+      Secure payment by Stripe. Cancel anytime.<br>
+      Your username is hashed before leaving your device.
+    </div>
+  </div>
+</div>
+
+<!-- FAQ -->
+<div class="faq">
+  <h2>Questions</h2>
+
+  <div class="faq-item">
+    <div class="faq-q">Can Relay read my bookmarks?</div>
+    <div class="faq-a">No. Your bookmarks are encrypted with your password before they leave your device. We store an unreadable blob. Not even we can see them.</div>
+  </div>
+
+  <div class="faq-item">
+    <div class="faq-q">What happens if I cancel?</div>
+    <div class="faq-a">You go back to the free plan immediately. Your bookmarks stay safe and synced — you just lose the Pro features. Nothing is deleted.</div>
+  </div>
+
+  <div class="faq-item">
+    <div class="faq-q">Why do you need my username to upgrade?</div>
+    <div class="faq-a">Relay has no email accounts — just a username and password. We hash your username to link the Pro subscription to your vault anonymously. We never store your actual username.</div>
+  </div>
+
+  <div class="faq-item">
+    <div class="faq-q">What is sync history?</div>
+    <div class="faq-a">Every time you sync, we keep a snapshot. If you accidentally delete bookmarks, you can restore from any point in the last 30 days.</div>
+  </div>
+
+  <div class="faq-item">
+    <div class="faq-q">Does this work on Safari?</div>
+    <div class="faq-a">Yes — Safari requires a one-time Xcode build (free), after which it works identically to Chrome and Edge. Instructions are in the extension.</div>
+  </div>
+</div>
+
+<footer>
+  © 2026 Relay ·
+  <a href="/relay-extension/privacy">Privacy Policy</a> ·
+  <a href="https://github.com/shahakshat14/relay-extension">Open Source</a>
+</footer>
+
+<script>
+// ── Config — replace with your actual values ──────────────────────────
+const SUPABASE_URL      = 'https://mgeiplftbehngfsqtbiq.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_3BVQxcUH_AljAaamBNrhBA_7knbqxFI';
+const SITE_URL          = 'https://shahakshat14.github.io/relay-extension';
+
+// ── Vault key derivation (mirrors crypto.js in the extension) ─────────
+const ENC = new TextEncoder();
+
+async function deriveVaultKey(username) {
+  const base = await crypto.subtle.importKey(
+    'raw', ENC.encode(username.toLowerCase().trim()), 'PBKDF2', false, ['deriveKey']
+  );
+  const key = await crypto.subtle.deriveKey(
+    { name:'PBKDF2', salt: ENC.encode('relay-vault-pepper-v1'), iterations: 100_000, hash:'SHA-256' },
+    base,
+    { name:'AES-GCM', length:256 },
+    true, ['encrypt']
+  );
+  const raw = await crypto.subtle.exportKey('raw', key);
+  return Array.from(new Uint8Array(raw)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+function showCheckout() {
+  document.getElementById('checkoutSection').classList.add('visible');
+  document.getElementById('checkoutSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  setTimeout(() => document.getElementById('usernameInput').focus(), 400);
+}
+
+function setStatus(msg, type) {
+  const el = document.getElementById('statusMsg');
+  el.textContent = msg;
+  el.className = `status-msg ${type}`;
+}
+
+async function startCheckout() {
+  const username = document.getElementById('usernameInput').value.trim().toLowerCase();
+  if (!username || username.length < 3) {
+    setStatus('Please enter your Relay username.', 'err');
+    return;
+  }
+
+  const btn = document.getElementById('btnCheckout');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="sp"></span> Preparing checkout…';
+  setStatus('', '');
+
+  try {
+    // Derive vault key client-side — username never leaves the browser
+    const vault_key = await deriveVaultKey(username);
+
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/create-checkout`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      },
+      body: JSON.stringify({
+        vault_key,
+        success_url: `${SITE_URL}/pricing/success.html`,
+        cancel_url:  `${SITE_URL}/pricing/`,
+      }),
+    });
+
+    const data = await res.json();
+
+    if (data.error === 'already_pro') {
+      setStatus('✓ You\'re already on Pro! Open Relay to sync.', 'ok');
+      btn.disabled = false;
+      btn.innerHTML = 'Continue to Payment →';
+      return;
+    }
+
+    if (data.error || !data.url) {
+      setStatus(data.error || 'Something went wrong. Please try again.', 'err');
+      btn.disabled = false;
+      btn.innerHTML = 'Continue to Payment →';
+      return;
+    }
+
+    // Redirect to Stripe Checkout
+    window.location.href = data.url;
+
+  } catch (err) {
+    setStatus('Network error. Check your connection and try again.', 'err');
+    btn.disabled = false;
+    btn.innerHTML = 'Continue to Payment →';
+  }
+}
+
+// Handle Enter key
+document.getElementById('usernameInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') startCheckout();
+});
+
+// Check for success redirect
+if (window.location.pathname.includes('success')) {
+  document.querySelector('.hero h1').textContent = 'Welcome to Relay Pro 🎉';
+  document.querySelector('.hero p').textContent = 'Your subscription is active. Open Relay in your browser — it will sync automatically.';
+}
+</script>
+</body>
+</html>
