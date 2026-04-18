@@ -99,7 +99,7 @@ h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
   <h2>🔐 Relay Admin</h2>
   <p>Enter your admin password to continue.</p>
   <input class="inp" id="gateInput" type="password" placeholder="Admin password…" style="width:100%;margin-bottom:10px;text-align:center">
-  <button class="btn btn-blue" style="width:100%" onclick="checkGate()">Enter</button>
+  <button class="btn btn-blue" style="width:100%" onclick="checkGate().catch(()=>{})">Enter</button>
   <div id="gateErr" style="font-size:12px;color:#e63946;margin-top:8px"></div>
 </div>
 
@@ -140,13 +140,19 @@ const SUPABASE_ANON_KEY = 'sb_publishable_3BVQxcUH_AljAaamBNrhBA_7knbqxFI';
 // Simple admin password — change this to something only you know
 // This is just a client-side gate, not true security — the real security
 // is that only you know this page exists
-const ADMIN_PASSWORD = 'Chandler@123'; // ← CHANGE THIS
+// FIX [H-5]: Hashed password — plaintext no longer visible in source
+const ADMIN_PASSWORD_HASH = 'b957247d12cbcd43ed6b691b4e883d14c27df4b2922e0390357d190d94cf6c64';
 
 let allCodesData = [];
 
-function checkGate() {
+async function checkGate() {
   const val = document.getElementById('gateInput').value;
-  if (val === ADMIN_PASSWORD) {
+  // FIX [H-5]: Hash input and compare to stored hash, not plaintext
+  const buf = new TextEncoder().encode(val);
+  const hashBuf = await crypto.subtle.digest('SHA-256', buf);
+  const hash = Array.from(new Uint8Array(hashBuf))
+    .map(b => b.toString(16).padStart(2,'0')).join('');
+  if (hash === ADMIN_PASSWORD_HASH) {
     document.getElementById('gate').style.display = 'none';
     document.getElementById('app').style.display = 'block';
     loadCodes();
@@ -155,8 +161,8 @@ function checkGate() {
   }
 }
 
-document.getElementById('gateInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter') checkGate();
+document.getElementById('gateInput').addEventListener('keydown', async (e) => {
+  if (e.key === 'Enter') await checkGate();
 });
 
 async function sb(method, path, body) {

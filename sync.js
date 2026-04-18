@@ -113,9 +113,20 @@ function isSafeUrl(url) {
   }
 }
 
-const clean = n => n.url
-  ? { type:'bookmark', title: sanitizeTitle(n.title, 2000), url: n.url, dateAdded: n.dateAdded||Date.now() }
-  : { type:'folder',   title: sanitizeTitle(n.title, 500),  children:(n.children||[]).map(clean) };
+// FIX [C-1]: Detect bookmark vs folder by presence of children, not URL truthiness.
+// Empty-string URLs were being treated as folders, then crashing when missing children.
+const clean = n => {
+  // Folder: has children array (Chrome's bookmarks API guarantees this)
+  if (Array.isArray(n.children)) {
+    return { type:'folder', title: sanitizeTitle(n.title, 500), children: n.children.map(clean) };
+  }
+  // Bookmark: has a non-empty URL
+  if (typeof n.url === 'string' && n.url.length > 0) {
+    return { type:'bookmark', title: sanitizeTitle(n.title, 2000), url: n.url, dateAdded: n.dateAdded || Date.now() };
+  }
+  // Unknown — treat as empty folder, will be filtered later
+  return { type:'folder', title: sanitizeTitle(n.title, 500), children: [] };
+};
 
 async function getLocalSnapshot() {
   const tree = await chrome.bookmarks.getTree();
@@ -143,24 +154,34 @@ function rootMatch(roots, kw) {
 }
 
 // FIX [H4]: Add depth limit to prevent stack overflow on malicious vaults
-async function mergeIn(nodes, parentId, urls, depth=0) {
-  if (depth > 20) return 0; // max 20 levels of folder nesting
+async function mergeIn(nodes, parentId, urls, depth=0, totalAdded={count:0}) {
+  if (depth > 20) return 0; // max nesting
+  if (!Array.isArray(nodes)) return 0;
+  // FIX [C-3]: Cap total bookmarks added per sync to prevent abuse
+  const MAX_PER_SYNC = 10000;
   let added = 0;
   for (const n of nodes) {
-    if (n.type === 'bookmark' && n.url) {
-      // FIX [C3]: Only import bookmarks with safe protocols
+    if (totalAdded.count >= MAX_PER_SYNC) break;
+    // Validate node shape every iteration (not just top-level)
+    if (!isValidNode(n)) continue;
+
+    if (n.type === 'bookmark') {
       if (!isSafeUrl(n.url)) continue;
       if (!urls.has(n.url)) {
-        const title = sanitizeTitle(n.title || 'New Bookmark', 2000);
-        await chrome.bookmarks.create({ parentId, title, url: n.url });
-        urls.add(n.url); added++;
+        try {
+          const title = sanitizeTitle(n.title || 'New Bookmark', 2000);
+          await chrome.bookmarks.create({ parentId, title, url: n.url });
+          urls.add(n.url); added++; totalAdded.count++;
+        } catch {} // skip individual failures, keep merging
       }
     } else if (n.type === 'folder') {
-      const kids = await chrome.bookmarks.getChildren(parentId);
-      const cleanFolderTitle = sanitizeTitle(n.title || 'Folder', 500);
-      let f = kids.find(c => !c.url && c.title === cleanFolderTitle);
-      if (!f) f = await chrome.bookmarks.create({ parentId, title: cleanFolderTitle });
-      added += await mergeIn(n.children||[], f.id, urls, depth + 1);
+      try {
+        const kids = await chrome.bookmarks.getChildren(parentId);
+        const cleanFolderTitle = sanitizeTitle(n.title || 'Folder', 500);
+        let f = kids.find(c => !c.url && c.title === cleanFolderTitle);
+        if (!f) f = await chrome.bookmarks.create({ parentId, title: cleanFolderTitle });
+        added += await mergeIn(n.children || [], f.id, urls, depth + 1, totalAdded);
+      } catch {}
     }
   }
   return added;
@@ -330,17 +351,42 @@ async function doSync(username, password) {
 }
 
 // ── Restore from a history snapshot (Pro feature) ────────────────────
+// FIX [M-13]: Validate decrypt + parse fully BEFORE any merge happens.
+// If anything fails, no bookmarks are touched.
 async function restoreFromSnapshot(snapshotId, password, vaultId) {
   if (!isValidVaultKey(vaultId)) throw new Error('Invalid vault.');
+  // Sanitize snapshot ID: should be UUID
+  if (!/^[a-f0-9-]{36}$/i.test(String(snapshotId))) throw new Error('Invalid snapshot ID.');
+
   const rows = await supabase('GET',
     `sync_history?id=eq.${snapshotId}&select=data&limit=1`);
   if (!rows || rows.length === 0) throw new Error('Snapshot not found.');
 
-  const plaintext = await decrypt(rows[0].data, password);
-  const data      = JSON.parse(plaintext);
-  const added     = await applyRemote(data);
+  // Step 1: Decrypt — fail fast if password wrong (nothing modified yet)
+  let plaintext;
+  try {
+    plaintext = await decrypt(rows[0].data, password);
+  } catch {
+    throw new Error('Cannot decrypt snapshot. Password may have changed since this was saved.');
+  }
 
-  // After restore, push the merged state back so all browsers get it
+  // Step 2: Parse — fail fast if data corrupt
+  let data;
+  try {
+    data = JSON.parse(plaintext);
+  } catch {
+    throw new Error('Snapshot data is corrupted.');
+  }
+
+  // Step 3: Validate shape — applyRemote does this internally, but verify here too
+  if (!data || typeof data !== 'object' || !Array.isArray(data.bookmarks)) {
+    throw new Error('Snapshot has invalid format.');
+  }
+
+  // All checks passed — safe to merge
+  const added = await applyRemote(data);
+
+  // Push the merged state back
   const snapshot = await getLocalSnapshot();
   const blob     = await encrypt(JSON.stringify(snapshot), password);
   await pushToCloud(vaultId, blob);

@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<title>Relay</title>
 <style>
 
 /* ════════════════════════════════════════════════════════════
@@ -942,7 +943,7 @@ body {
     <div class="input-wrap">
       <input class="input" id="siPassword" type="password" placeholder="••••••••••"
         autocomplete="current-password">
-      <button class="input-eye" id="siEye">👁</button>
+      <button class="input-eye" id="siEye" aria-label="Show password"><svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><path d="M8 3C4.5 3 1.7 5.4 0 8c1.7 2.6 4.5 5 8 5s6.3-2.4 8-5c-1.7-2.6-4.5-5-8-5zm0 8a3 3 0 110-6 3 3 0 010 6zm0-1.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/></svg></button>
     </div>
   </div>
 
@@ -993,7 +994,7 @@ body {
     <div style="font-size:13px;color:var(--t-3);text-align:center;margin:6px 0 8px">or type your own</div>
     <div class="input-wrap">
       <input class="input" id="passInput" type="password" placeholder="Password" autocomplete="new-password">
-      <button class="input-eye" id="passEye">👁</button>
+      <button class="input-eye" id="passEye" aria-label="Show password"><svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><path d="M8 3C4.5 3 1.7 5.4 0 8c1.7 2.6 4.5 5 8 5s6.3-2.4 8-5c-1.7-2.6-4.5-5-8-5zm0 8a3 3 0 110-6 3 3 0 010 6zm0-1.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/></svg></button>
     </div>
     <div class="strength-bars">
       <div class="strength-bar" id="sb1"></div>
@@ -1004,7 +1005,7 @@ body {
     <div class="strength-text" id="strLbl"></div>
     <div class="input-wrap">
       <input class="input" id="passConfirm" type="password" placeholder="Confirm password" autocomplete="new-password">
-      <button class="input-eye" id="passConfirmEye">👁</button>
+      <button class="input-eye" id="passConfirmEye" aria-label="Show password"><svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><path d="M8 3C4.5 3 1.7 5.4 0 8c1.7 2.6 4.5 5 8 5s6.3-2.4 8-5c-1.7-2.6-4.5-5-8-5zm0 8a3 3 0 110-6 3 3 0 010 6zm0-1.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/></svg></button>
     </div>
     <div class="pass-match" id="passMatchStatus"></div>
   </div>

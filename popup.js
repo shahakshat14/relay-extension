@@ -131,10 +131,13 @@ function show(id){
   q(id)?.classList.add('active');
 }
 
-function eye(inpId,btnId){
-  const i=q(inpId);
-  i.type=i.type==='password'?'text':'password';
-  q(btnId).textContent=i.type==='password'?'👁':'🙈';
+function eye(inpId, btnId){
+  const i = q(inpId);
+  const b = q(btnId);
+  if (!i || !b) return;
+  i.type = i.type === 'password' ? 'text' : 'password';
+  // Toggle visual state via opacity rather than swapping icons
+  b.style.opacity = i.type === 'password' ? '0.5' : '1';
 }
 
 const clrT=(id)=>{const e=q(id);if(e)e.className='toast';};
@@ -300,7 +303,7 @@ function showStats(count, lastSync){
 async function goMain(autoSync=false){
   const u=getU();
   show('vMain');
-  if(q('mainUsername'))q('mainUsername').textContent=`@${u}`;
+  if(q('mainUsername'))q('mainUsername').textContent= u ? `@${u}` : '—';
   await chrome.storage.local.set({hasAccount:true,username:u});
 
   const {lastSync,autoSync:aS,plan,bmCount}=
@@ -318,7 +321,7 @@ async function goMain(autoSync=false){
     q('orbSub').textContent='Tap to sync your bookmarks';
   }
 
-  const stale=!lastSync||(Date.now()-new Date(lastSync))>30_000;
+  const stale=!lastSync||(Date.now()-new Date(lastSync))>300_000; // 5 minutes
   if(autoSync||(aS&&stale))
     setTimeout(()=>runSync(getU(),getP()),350);
 }
@@ -326,7 +329,7 @@ async function goMain(autoSync=false){
 async function goMainPending(autoSync=false){
   const u=getU();
   show('vMain');
-  if(q('mainUsername'))q('mainUsername').textContent=`@${u}`;
+  if(q('mainUsername'))q('mainUsername').textContent= u ? `@${u}` : '—';
   q('chkAuto').checked=false;
   q('orbLabel').textContent='Sync Now';
   q('orbSub').textContent='Verifying your credentials…';
@@ -592,10 +595,14 @@ q('btnCreate').addEventListener('click',async()=>{
 // ─────────────────────────────────────────────────────────────────────
 // Main events
 // ─────────────────────────────────────────────────────────────────────
-q('btnSync').addEventListener('click',()=>{
+let _syncInProgress = false;
+q('btnSync').addEventListener('click',async()=>{
+  if(_syncInProgress)return; // FIX [H-7]: Prevent concurrent syncs
   const u=getU(),p=getP();
   if(!u||!p){show('vSignIn');return;}
-  runSync(u,p);
+  _syncInProgress = true;
+  try { await runSync(u,p); }
+  finally { _syncInProgress = false; }
 });
 
 // Make whole account row clickable
@@ -644,22 +651,43 @@ q('btnShowHistory')?.addEventListener('click',async()=>{
       q('historyList').innerHTML='<div style="text-align:center;color:var(--t-2);padding:20px">No history yet. Sync to start tracking.</div>';
       return;
     }
-    q('historyList').innerHTML=list.map(s=>{
+    // FIX [M-8]: Build elements via DOM API instead of innerHTML to prevent XSS
+    const escId = (s) => String(s).replace(/[^a-zA-Z0-9-]/g, '');
+    q('historyList').innerHTML='';
+    list.forEach(s=>{
       const date=new Date(s.created_at);
+      if(isNaN(date)) return; // skip invalid dates
       const ago=age(s.created_at);
       const dt=date.toLocaleDateString([],{month:'short',day:'numeric'})+' '+date.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
-      return `<button class="list-row" data-id="${s.id}">
-        <div class="row-icon">📅</div>
-        <div class="row-content">
-          <div class="row-title">${dt}</div>
-          <div class="row-subtitle">${s.bookmark_count} bookmarks · ${ago}</div>
-        </div>
-        <div class="row-trailing">↶</div>
-      </button>`;
-    }).join('');
-    q('historyList').querySelectorAll('button[data-id]').forEach(b=>{
-      b.addEventListener('click',()=>confirmRestore(b.dataset.id));
+      const count = (typeof s.bookmark_count === 'number' && s.bookmark_count >= 0) ? s.bookmark_count : '?';
+
+      const btn = document.createElement('button');
+      btn.className = 'list-row';
+      btn.dataset.id = escId(s.id);
+
+      const ico = document.createElement('div');
+      ico.className = 'row-icon';
+      ico.textContent = '📅';
+
+      const cnt = document.createElement('div');
+      cnt.className = 'row-content';
+      const t = document.createElement('div');
+      t.className = 'row-title';
+      t.textContent = dt;
+      const sub = document.createElement('div');
+      sub.className = 'row-subtitle';
+      sub.textContent = `${count} bookmarks · ${ago}`;
+      cnt.append(t, sub);
+
+      const tr = document.createElement('div');
+      tr.className = 'row-trailing';
+      tr.textContent = '↶';
+
+      btn.append(ico, cnt, tr);
+      btn.addEventListener('click', () => confirmRestore(btn.dataset.id));
+      q('historyList').appendChild(btn);
     });
+    // (handlers attached during build above)
   }catch(err){
     q('historyList').innerHTML=`<div style="color:var(--red);padding:20px;text-align:center">${err.message}</div>`;
   }
@@ -682,7 +710,9 @@ q('btnRestoreConfirm')?.addEventListener('click',async()=>{
   btn.disabled=true;btn.innerHTML='<span class="sp"></span> Restoring…';
   try{
     const u=getU(),p=getP();
+    if(!u||!p)throw new Error('Session expired. Sign in again.');
     const vk=await vaultKey(u);
+    // FIX [M-13]: restoreFromSnapshot now validates decryption before merging
     const {restored,count}=await restoreFromSnapshot(pendingRestoreId,p,vk);
     await chrome.storage.local.set({bmCount:count,lastSync:new Date().toISOString()});
     toast('toastRestore',`Restored ${restored} bookmarks. Total: ${count}.`,'ok');
@@ -756,10 +786,27 @@ q('btnRedeemGift')?.addEventListener('click',async()=>{
     if(!data.success){
       toast('toastGift',data.error||'Invalid code.','err');
     }else{
-      await chrome.storage.local.set({plan:'pro'});
-      applyPlan('pro');
-      toast('toastGift',`🎉 Pro activated for ${data.days} days!`,'ok');
-      setTimeout(()=>show('vSecurity'),2000);
+      // [H-12]: Verify with server, don't trust local set
+      try {
+        const u = getU();
+        const vk = await vaultKey(u);
+        const planInfo = await getPlan(vk);
+        await chrome.storage.local.set({plan: planInfo.effective_plan});
+        applyPlan(planInfo.effective_plan);
+      } catch {
+        await chrome.storage.local.set({plan:'pro'});
+        applyPlan('pro');
+      }
+      // FIX [H-11]: Format human-readable expiry instead of raw days count
+      let msg = '🎉 Pro activated!';
+      if (data.days && data.days < 36500) {
+        const expDate = new Date(Date.now() + data.days * 86400_000);
+        msg = `🎉 Pro activated until ${expDate.toLocaleDateString([], {month:'short', day:'numeric', year:'numeric'})}`;
+      } else if (data.days >= 36500) {
+        msg = '🎉 Pro activated for life!';
+      }
+      toast('toastGift', msg, 'ok');
+      setTimeout(()=>show('vSecurity'),2200);
     }
   }catch{
     toast('toastGift','Something went wrong. Try again.','err');
