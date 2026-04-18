@@ -150,7 +150,7 @@ async function getLocalUrls() {
 }
 
 function rootMatch(roots, kw) {
-  return roots.find(r => r.title.toLowerCase().includes(kw)) || roots[0];
+  return roots.find(r => (r.title || '').toLowerCase().includes(kw)) || roots[0] || null;
 }
 
 // FIX [H4]: Add depth limit to prevent stack overflow on malicious vaults
@@ -322,14 +322,15 @@ async function doSync(username, password) {
       // Wrong password — exit with consistent error
       throw new Error('Wrong password or corrupted data. Check your credentials.');
     }
-    // Parse and apply outside the catch so genuine errors (FREE_LIMIT etc) propagate
+    // Parse JSON separately so we can distinguish parse errors from apply errors
+    let data;
     try {
-      const data = JSON.parse(plaintext);
-      pulled = await applyRemote(data);
-    } catch (e) {
-      // Distinguish corruption from genuine parsing failure
+      data = JSON.parse(plaintext);
+    } catch {
       throw new Error('Vault data is corrupted. Contact support.');
     }
+    // applyRemote may throw structured errors — let them propagate
+    pulled = await applyRemote(data);
   }
 
   const snapshot = await getLocalSnapshot();

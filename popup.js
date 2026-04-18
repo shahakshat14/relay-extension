@@ -167,6 +167,11 @@ const PRICING_URL='https://shahakshat14.github.io/relay-extension/pricing/';
 function applyPlan(plan){
   const isPro = plan==='pro';
 
+  // [B-11] Hide upgrade alert when becoming Pro
+  if (isPro) {
+    q('upgradeAlert')?.classList.remove('show');
+  }
+
   // Show/hide history button based on plan
   const histBtn=q('btnShowHistory');
   if(histBtn) histBtn.style.display=isPro?'flex':'none';
@@ -177,13 +182,12 @@ function applyPlan(plan){
     autoTog.style.opacity=isPro?'1':'0.55';
   }
 
-
   // Update all chips
   ['mainChip','secChip'].forEach(id=>{
     const el=q(id);
     if(!el)return;
     el.textContent=isPro?'PRO':'FREE';
-    el.className=`plan-badge${isPro?' pro':''}`;
+    el.className=`badge${isPro?' pro':''}`;
   });
 
   // Update main screen hint
@@ -300,17 +304,17 @@ function showStats(count, lastSync){
 // ─────────────────────────────────────────────────────────────────────
 // Go to main
 // ─────────────────────────────────────────────────────────────────────
-async function goMain(autoSync=false){
+async function goMain(initialSync=false){
   const u=getU();
   show('vMain');
   if(q('mainUsername'))q('mainUsername').textContent= u ? `@${u}` : '—';
   await chrome.storage.local.set({hasAccount:true,username:u});
 
-  const {lastSync,autoSync:aS,plan,bmCount}=
+  const {lastSync,autoSync:aS,plan:cachedPlan,bmCount}=
     await chrome.storage.local.get(['lastSync','autoSync','plan','bmCount']);
 
-  q('chkAuto').checked=!!aS;
-  applyPlan(plan||'free');
+  // Show cached plan immediately for snappy UI, then re-verify in background
+  applyPlan(cachedPlan||'free');
 
   if(lastSync&&bmCount!=null){
     showStats(bmCount,lastSync);
@@ -321,27 +325,34 @@ async function goMain(autoSync=false){
     q('orbSub').textContent='Tap to sync your bookmarks';
   }
 
-  const stale=!lastSync||(Date.now()-new Date(lastSync))>300_000; // 5 minutes
-  if(autoSync||(aS&&stale))
+  // [B-10] Re-verify plan from server, then update toggle if downgraded
+  (async () => {
+    try {
+      const vk = await vaultKey(u);
+      const planInfo = await getPlan(vk);
+      const realPlan = planInfo.effective_plan;
+      if (realPlan !== cachedPlan) {
+        await chrome.storage.local.set({plan: realPlan});
+        applyPlan(realPlan);
+      }
+      // [B-9] If user is no longer Pro, force auto-sync OFF
+      if (realPlan !== 'pro' && aS) {
+        await chrome.storage.local.set({autoSync: false});
+        q('chkAuto').checked = false;
+      } else {
+        q('chkAuto').checked = !!aS;
+      }
+    } catch {
+      q('chkAuto').checked = !!aS;
+    }
+  })();
+
+  // For sync-on-open behavior:
+  // - initialSync=true means we just signed in, do a sync to merge any cloud changes
+  // - aS=true && stale means auto-sync is on and we haven't synced recently
+  const stale=!lastSync||(Date.now()-new Date(lastSync))>300_000;
+  if(initialSync||(aS&&stale&&cachedPlan==='pro'))
     setTimeout(()=>runSync(getU(),getP()),350);
-}
-
-async function goMainPending(autoSync=false){
-  const u=getU();
-  show('vMain');
-  if(q('mainUsername'))q('mainUsername').textContent= u ? `@${u}` : '—';
-  q('chkAuto').checked=false;
-  q('orbLabel').textContent='Sync Now';
-  q('orbSub').textContent='Verifying your credentials…';
-
-  if(autoSync){
-    setTimeout(async()=>{
-      try{
-        await runSync(getU(),getP());
-        await chrome.storage.local.set({hasAccount:true,username:u});
-      }catch{}
-    },350);
-  }
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -777,13 +788,21 @@ q('btnRedeemGift')?.addEventListener('click',async()=>{
 
   try{
     const u=getU(), vk=await vaultKey(u);
+    if(!u){throw new Error('Session expired. Sign in again.');}
+    if(!isValidVaultKey(vk)){throw new Error('Invalid vault key.');}
     const res=await fetch(`${SUPABASE_URL}/rest/v1/rpc/redeem_gift_code`,{
       method:'POST',
       headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`,'Content-Type':'application/json'},
       body:JSON.stringify({p_code:code,p_vault_key:vk}),
     });
-    const data=await res.json();
-    if(!data.success){
+    if(!res.ok){
+      toast('toastGift','Server error. Try again.','err');
+      btn.disabled=false;btn.innerHTML='Redeem →';
+      return;
+    }
+    let data;
+    try { data = await res.json(); } catch { data = null; }
+    if(!data || !data.success){
       toast('toastGift',data.error||'Invalid code.','err');
     }else{
       // [H-12]: Verify with server, don't trust local set
