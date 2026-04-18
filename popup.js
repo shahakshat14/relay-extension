@@ -400,15 +400,50 @@ q('btnSignIn').addEventListener('click',async()=>{
   if(!username){toast('toastSignIn','Enter your username.','err');return;}
   if(!password){toast('toastSignIn','Enter your password.','err');return;}
 
-  q('btnSignIn').disabled=true;
-  q('btnSignIn').innerHTML='<span class="sp"></span> Signing in…';
+  const btn=q('btnSignIn');
+  btn.disabled=true;
+  btn.innerHTML='<span class="sp"></span> Verifying…';
+  clrT('toastSignIn');
 
-  await saveSession(username,password);
-  q('siUsername').value='';q('siPassword').value='';
-  await goMainPending(true);
+  try{
+    // FIX: Verify vault exists + password decrypts correctly BEFORE
+    // advancing to main view. This was previously letting anything through.
+    const vk=await vaultKey(username);
+    if(!isValidVaultKey(vk))throw new Error('Invalid username.');
 
-  q('btnSignIn').disabled=false;
-  q('btnSignIn').innerHTML='Sign In →';
+    const remote=await pullFromCloud(vk);
+    if(!remote?.data){
+      // No vault at this username — that means account doesn't exist
+      throw new Error('No account found. Check your username, or create a new account.');
+    }
+
+    // Vault exists — try to decrypt. If password wrong, this throws.
+    try{
+      await decrypt(remote.data,password);
+    }catch{
+      throw new Error('Wrong password. Please try again.');
+    }
+
+    // Credentials verified. Clear local storage (preserve browserId)
+    // so previous account's data doesn't leak.
+    const {browserId}=await chrome.storage.local.get('browserId');
+    await chrome.storage.local.clear();
+    if(browserId) await chrome.storage.local.set({browserId});
+
+    await saveSession(username,password);
+    await chrome.storage.local.set({hasAccount:true,username});
+    q('siUsername').value='';q('siPassword').value='';
+
+    // Now actually advance to main view and run the real sync
+    await goMain(true);
+
+  }catch(err){
+    toast('toastSignIn',err.message,'err');
+    await clearSession();
+  }finally{
+    btn.disabled=false;
+    btn.innerHTML='Sign In →';
+  }
 });
 
 q('btnNewUserSignIn').addEventListener('click',()=>{
