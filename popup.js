@@ -624,7 +624,16 @@ q('btnRestoreConfirm')?.addEventListener('click',async()=>{
   }
 });
 
-q('btnLock').addEventListener('click',()=>{clearSession();show('vSignIn');});
+q('btnLock').addEventListener('click',async()=>{
+  // Clear session creds AND all local storage so account A's data
+  // doesn't leak into account B's session in the same browser.
+  // We keep browserId since it's tied to this physical browser, not the user.
+  await clearSession();
+  const {browserId}=await chrome.storage.local.get('browserId');
+  await chrome.storage.local.clear();
+  if(browserId) await chrome.storage.local.set({browserId});
+  show('vSignIn');
+});
 q('btnDeleteAccount')?.addEventListener('click',()=>show('vDeleteConfirm'));
 
 // ─────────────────────────────────────────────────────────────────────
