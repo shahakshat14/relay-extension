@@ -1,5 +1,36 @@
 'use strict';
 
+// ── Remote config ────────────────────────────────────────────────────
+// Fetches config from GitHub Pages on startup. Lets us change limits,
+// URLs, and feature flags without a Chrome Web Store submission.
+// Falls back to hardcoded defaults if fetch fails (offline, etc.)
+
+let _remoteConfig = null;
+
+const DEFAULT_CONFIG = {
+  free_bookmark_limit: 500,
+  free_browser_limit:  2,
+  maintenance_mode:    false,
+  maintenance_message: '',
+};
+
+async function getConfig() {
+  if (_remoteConfig) return _remoteConfig;
+  try {
+    const res = await fetch(
+      'https://shahakshat14.github.io/relay-extension/config.json',
+      { cache: 'no-cache' }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      _remoteConfig = { ...DEFAULT_CONFIG, ...data };
+      return _remoteConfig;
+    }
+  } catch {}
+  return DEFAULT_CONFIG;
+}
+
+
 // ── Supabase client ───────────────────────────────────────────────────
 
 // FIX [H2]: Map known errors to friendly messages
@@ -100,7 +131,6 @@ async function pullFromCloud(vaultId) {
 }
 
 // ── Bookmark engine ───────────────────────────────────────────────────
-
 
 // FIX [HIGH-5]: Sanitize bookmark titles before insertion.
 // Removes control chars, null bytes, and HTML-significant chars.
@@ -240,7 +270,7 @@ async function checkUsernameAvailable(username) {
 }
 
 // ── Plan checking ─────────────────────────────────────────────────────
-const FREE_BOOKMARK_LIMIT = 500;
+// FREE_BOOKMARK_LIMIT now comes from remote config — see getConfig()
 
 async function getPlan(vaultId) {
   if (!isValidVaultKey(vaultId)) return { effective_plan: 'free', bookmark_count: 0 };
@@ -355,8 +385,12 @@ async function doSync(username, password, accountSalt) {
 
   const snapshot = await getLocalSnapshot();
 
-  // FIX [MED-6]: Free tier limit checked BEFORE expensive encryption
-  if (!isPro && snapshot.count > FREE_BOOKMARK_LIMIT) {
+  // Free tier limit from remote config (fallback: 500)
+  const cfg = await getConfig();
+  if (cfg.maintenance_mode) {
+    throw new Error(`MAINTENANCE:${cfg.maintenance_message || 'Relay is temporarily down for maintenance.'}`);
+  }
+  if (!isPro && snapshot.count > cfg.free_bookmark_limit) {
     throw new Error(`FREE_LIMIT:${snapshot.count}`);
   }
 
@@ -377,7 +411,7 @@ async function doSync(username, password, accountSalt) {
 async function restoreFromSnapshot(snapshotId, password, vaultId) {
   if (!isValidVaultKey(vaultId)) throw new Error('Invalid vault.');
   // Sanitize snapshot ID: should be UUID
-  if (!/^[a-f0-9-]{36}$/i.test(String(snapshotId))) throw new Error('Invalid snapshot ID.');
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(snapshotId))) throw new Error('Invalid snapshot ID.');
 
   const rows = await supabase('GET',
     `sync_history?id=eq.${snapshotId}&select=data&limit=1`);

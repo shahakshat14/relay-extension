@@ -2,12 +2,11 @@
   "manifest_version": 3,
   "name": "Relay \u2013 Private Bookmark Sync",
   "short_name": "Relay",
-  "version": "4.13.3",
+  "version": "4.14.1",
   "description": "Sync bookmarks across Chrome, Edge, and Safari. End-to-end encrypted with your password. No email. Fully anonymous.",
   "permissions": [
     "bookmarks",
-    "storage",
-    "tabs"
+    "storage"
   ],
   "action": {
     "default_popup": "popup.html",
@@ -27,6 +26,6 @@
     "128": "icons/icon128.png"
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://*.supabase.co"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://*.supabase.co https://shahakshat14.github.io"
   }
 }

@@ -192,7 +192,7 @@ function age(iso){
 // ─────────────────────────────────────────────────────────────────────
 // Plan UI helpers
 // ─────────────────────────────────────────────────────────────────────
-const PRICING_URL='https://tridentCX.github.io/relay-extension/pricing/';
+const PRICING_URL='https://shahakshat14.github.io/relay-extension/pricing/';
 
 function applyPlan(plan){
   const isPro = plan==='pro';
@@ -308,6 +308,15 @@ async function runSync(username, password){
       return;
     }
 
+    if(err.message.startsWith('MAINTENANCE:')){
+      const msg = err.message.split(':').slice(1).join(':');
+      q('orbIco').textContent='🛠';
+      q('orbLabel').textContent='Maintenance';
+      q('orbSub').textContent = msg || 'Relay is temporarily down. Check back soon.';
+      btn.classList.remove('error');
+      setTimeout(()=>{btn.disabled=false;if(orb)orb.className='orb';q('orbIco').textContent='⇄';q('orbLabel').textContent='Try Again';q('orbSub').textContent='';},5000);
+      return;
+    }
     if(err.message.startsWith('RATE_LIMIT:')){
       const window = err.message.split(':')[1];
       q('orbIco').textContent='⏱';
