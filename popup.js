@@ -308,6 +308,24 @@ async function runSync(username, password){
       return;
     }
 
+    if(err.message.startsWith('RATE_LIMIT:')){
+      const window = err.message.split(':')[1];
+      q('orbIco').textContent='⏱';
+      q('orbLabel').textContent='Slow down';
+      q('orbSub').textContent = window === 'minute'
+        ? 'Syncing too fast — wait a moment'
+        : 'Hourly sync limit reached — try later';
+      btn.classList.remove('error');
+      setTimeout(()=>{
+        btn.disabled=false;
+        if(orb)orb.className='orb';
+        q('orbIco').textContent='⇄';
+        q('orbLabel').textContent='Sync Now';
+        q('orbSub').textContent='';
+      }, window === 'minute' ? 15_000 : 60_000);
+      return;
+    }
+
     q('orbIco').textContent='⚠';
     q('orbLabel').textContent='Sync failed';
     q('orbSub').textContent='';
@@ -796,10 +814,14 @@ q('btnLock').addEventListener('click',async()=>{
   await clearSession();
   // Preserve browserId (tied to physical browser) and accountSalt (tied to vault key)
   // so a returning user on this device can sign back in without losing their vault key.
+  // Preserve device-bound keys; clear user-bound session data
   const {browserId, accountSalt} = await chrome.storage.local.get(['browserId','accountSalt']);
   await chrome.storage.local.clear();
-  if(browserId)    await chrome.storage.local.set({browserId});
-  if(accountSalt)  await chrome.storage.local.set({accountSalt});
+  if(browserId)   await chrome.storage.local.set({browserId});
+  if(accountSalt) await chrome.storage.local.set({accountSalt});
+  // Auth tokens are user-bound — clear them so next user gets a fresh identity
+  // (clearAuthToken is in sync.js scope via the shared supabase module)
+  try { await clearAuthToken(); } catch {}
 
   // Clear stale UI state so previous account's data doesn't briefly flash
   q('mainUsername').textContent='—';

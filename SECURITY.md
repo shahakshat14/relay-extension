@@ -1,59 +1,62 @@
 # How Relay Protects Your Data
 
-Relay was built privacy-first. Here's exactly how your data is protected — no marketing, no vague claims, just the technical truth in plain language.
+Relay was built privacy-first. Here's exactly how your data is protected — no marketing, no vague claims, just the technical truth.
 
 ---
 
-## The two secrets
+## The security model
 
-Relay uses two completely independent secrets. An attacker needs **both** to access your bookmarks. Knowing one tells them nothing about the other.
+Relay uses **two independent secrets**. An attacker needs both to access your bookmarks.
 
-### 🔑 Your passphrase
+### 🔑 Secret 1 — Your password
 
-- **What it does:** Encrypts and decrypts your bookmark data using AES-256-GCM with a PBKDF2-derived key (310,000 iterations, SHA-256).
-- **Where it lives:** Only in your head (and your recovery key file if you downloaded one). Relay never stores it, never transmits it, never logs it.
-- **What it protects:** The actual content of your bookmarks. Without your passphrase, the encrypted blob stored in the cloud is completely unreadable — even to us.
+- **What it does:** Derives an AES-256-GCM encryption key via PBKDF2 (600,000 iterations, SHA-256, 32-byte random salt). Encrypts and decrypts your bookmark data.
+- **Where it lives:** Only in your head. Relay never stores it, never transmits it, never logs it.
+- **What it protects:** The content of your bookmarks. Without your password the encrypted blob is completely unreadable — even to us, even if our database is fully compromised.
 
-### 🎲 Your vault ID
+### 🎲 Secret 2 — Your account salt
 
-- **What it does:** Identifies which row in the database belongs to you.
-- **Where it lives:** Your browser's `chrome.storage.local`. It is generated randomly on first setup and never leaves your device except as an identifier in API requests.
-- **What it protects against:** Brute force. Your vault ID is a random 128-bit UUID — completely unrelated to your passphrase. An attacker who somehow guesses your passphrase still cannot find your vault without the vault ID.
+- **What it does:** A 32-byte cryptographically random value generated on first install. It is mixed into the vault key derivation alongside your username: `PBKDF2(username, PEPPER || accountSalt)`.
+- **Where it lives:** `chrome.storage.local` on your device. It never leaves your browser.
+- **What it protects against:** Vault enumeration. An attacker who knows your username cannot compute your vault key — and therefore cannot fetch your encrypted data — without also having physical access to your device.
 
 ---
 
 ## Why two secrets?
 
-A common attack on encrypted cloud storage is:
+A common attack on encrypted cloud storage:
 
-1. Enumerate all vaults in the database
-2. For each vault, try to decrypt with a guessed passphrase
+1. Enumerate or guess all vault identifiers in the database
+2. For each vault, try offline password brute-force
 3. If decryption succeeds, the data is compromised
 
-If the vault ID were **derived from the passphrase** (which is what many apps do), then brute-forcing the passphrase automatically reveals the vault ID too. One secret to break everything.
+If the vault key were purely derived from the username (deterministic, no device secret), an attacker who knows your username could fetch your encrypted blob and attempt offline brute-force.
 
-Relay generates the vault ID **randomly and independently**. This means:
+By mixing in a random device-local salt, **the vault key is uncomputable without the device**:
 
 | What the attacker has | What they can do |
 |---|---|
-| Passphrase only | Nothing — can't find the vault |
-| Vault ID only | Nothing — encrypted blob is unreadable |
-| Both | Full access |
+| Username only | Cannot locate your vault |
+| Password only | Cannot locate your vault |
+| Username + password | Cannot locate your vault without the device salt |
+| Username + device salt | Can find vault, cannot decrypt without password |
+| All three | Full access |
 
-The vault ID is the harder secret to steal (it's stored locally), and the passphrase is the harder secret to guess (it never leaves your device). Neither is useful alone.
+The device salt is what makes the model genuinely two-factor at the vault level.
 
 ---
 
-## What Relay (and Supabase) can see
+## What Relay and Supabase can see
 
-| Data | What we store | Can we read it? |
+| Data | What is stored | Can we read it? |
 |---|---|---|
 | Your bookmarks | AES-256-GCM encrypted blob | ❌ No |
-| Your vault ID | Random UUID | ✅ Yes (it's a row identifier) |
-| Your passphrase | Not stored at all | ❌ No |
+| Vault identifier | PBKDF2(username, PEPPER ∥ deviceSalt) | ✅ Yes (row key) |
+| Your password | Not stored at all | ❌ No |
+| Your device salt | Not stored server-side | ❌ No |
 | Your identity | Nothing — no email, no name | ❌ No |
 
-Supabase (our cloud provider) also cannot read your bookmarks. They store the same encrypted blob. Even a full database breach would yield only unreadable ciphertext.
+Supabase stores only the encrypted blob and the derived vault key hash. Even a complete database breach yields nothing readable.
 
 ---
 
@@ -61,46 +64,55 @@ Supabase (our cloud provider) also cannot read your bookmarks. They store the sa
 
 | Property | Value |
 |---|---|
-| Algorithm | AES-256-GCM |
-| Key derivation | PBKDF2 |
-| Iterations | 310,000 |
-| Hash | SHA-256 |
-| Salt | 32 bytes, random per encrypt |
-| IV | 12 bytes, random per encrypt |
+| Bookmark encryption | AES-256-GCM |
+| Key derivation (data) | PBKDF2-SHA256, **600,000 iterations** |
+| Key derivation (vault key) | PBKDF2-SHA256, 200,000 iterations |
+| Data key salt | 32 bytes, random per encrypt operation |
+| IV / nonce | 12 bytes, random per encrypt operation |
 | Key length | 256 bits |
+| Vault key pepper | `relay-vault-pepper-v1` (public, fixed) |
+| Device salt | 32 bytes, random per account, stored locally |
 
-The salt and IV are randomly generated on every sync, so the same plaintext will produce a different ciphertext every time. This prevents pattern analysis.
+The data salt and IV are regenerated on every sync, so the same bookmark set produces different ciphertext every time. This prevents ciphertext comparison across syncs.
 
 ---
 
-## Your recovery key
+## Password strength
 
-When you set up Relay, you're offered a recovery key file. This file contains:
+Relay generates strong passwords in the format `xxxxxx-xxxxxx-xxxxxx` — three groups of 6 characters drawn from a 32-character set (lowercase a–z, digits 2–9, excluding visually ambiguous characters). Each group is guaranteed to contain at least one digit.
 
-1. Your **vault ID** (so you can restore access after reinstalling Relay)
-2. Your **passphrase** (so you don't lose it)
-3. Plain-language instructions for restoring
+**Entropy: ~71 bits.**
 
-**Store this file in a password manager or encrypted drive.** Do not store it unencrypted in cloud storage (Dropbox, Google Drive, etc.) — that would give anyone with access to those accounts both secrets.
-
-If you lose your passphrase and don't have a recovery key, your bookmarks cannot be recovered. This is intentional — no back door means no one can use a back door against you.
+At PBKDF2-600k on a modern GPU (~1,000–3,000 attempts/sec), exhausting this space would take millions of years. You may use any password you choose, but the generated default is already very strong.
 
 ---
 
 ## What happens if you reinstall Relay?
 
-Reinstalling the extension clears `chrome.storage.local`, which wipes your vault ID. Without it, Relay can't find your vault.
+Reinstalling clears `chrome.storage.local`, which deletes your account salt. Without it, Relay cannot compute your vault key and cannot locate your vault.
 
-**To restore:** Use the "Restore from recovery key" option on the unlock screen. Enter your vault ID and passphrase from your recovery key file. Your bookmarks will be decrypted from the cloud and restored.
+**Recovery:** You must have a copy of your account salt (included in your recovery key file). On the sign-in screen, use the recovery option and enter your username, password, and account salt. Your bookmarks will be restored from the cloud.
+
+If you lose both your account salt and your recovery key, **your bookmarks cannot be recovered**. This is intentional — no back door means no one can use a back door against you.
+
+---
+
+## URL sync policy
+
+Relay only syncs bookmarks with `http://`, `https://`, `ftp://`, and `ftps://` URLs. The following are **not synced**:
+
+- `file://` — would leak local filesystem paths across devices
+- `chrome://`, `edge://` — browser-internal URLs meaningless on other browsers
+- `about://`, `javascript://`, `data://` — browser-internal or potentially dangerous
 
 ---
 
 ## Open source
 
-Relay's source code is fully open on GitHub. You can verify every claim on this page by reading the code yourself:
+Relay's source code is fully open. Verify every claim on this page by reading the code:
 
-- Encryption: [`crypto.js`](./crypto.js)
-- Sync logic: [`sync.js`](./sync.js)
-- UI + vault ID generation: [`popup.js`](./popup.js)
+- Encryption & vault key: [`crypto.js`](./crypto.js)
+- Sync engine & URL filtering: [`sync.js`](./sync.js)
+- Account salt generation: [`popup.js`](./popup.js)
 
-If you find a security issue, please open a GitHub issue or contact us directly.
+Found a security issue? Open a GitHub issue or contact us directly.

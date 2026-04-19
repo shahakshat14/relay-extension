@@ -16,18 +16,113 @@ function friendlyError(raw) {
   return 'Sync failed. Please try again.';
 }
 
+// ── Auth token management ──────────────────────────────────────────
+// Returns the current JWT access token, or falls back to anon key.
+// We store the token in chrome.storage.local after signIn/signUp.
+async function getAuthToken() {
+  try {
+    const { relayAuthToken } = await chrome.storage.local.get('relayAuthToken');
+    if (relayAuthToken) return relayAuthToken;
+  } catch {}
+  return SUPABASE_KEY; // fallback for unauthenticated requests
+}
+
+async function setAuthToken(token) {
+  try { await chrome.storage.local.set({ relayAuthToken: token }); } catch {}
+}
+
+async function clearAuthToken() {
+  try { await chrome.storage.local.remove('relayAuthToken'); } catch {}
+}
+
+// ── Supabase Auth — anonymous sign-in ───────────────────────────
+// Creates a real anonymous user in auth.users the first time.
+// Subsequent calls refresh the session using the stored refresh token.
+async function ensureAuth() {
+  try {
+    const { relayAuthToken, relayRefreshToken } = await chrome.storage.local.get(
+      ['relayAuthToken', 'relayRefreshToken']
+    );
+
+    // Already have a valid token
+    if (relayAuthToken) return relayAuthToken;
+
+    // Try to refresh existing session
+    if (relayRefreshToken) {
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+        method: 'POST',
+        headers: { 'apikey': SUPABASE_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: relayRefreshToken }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.access_token) {
+          await chrome.storage.local.set({
+            relayAuthToken:    data.access_token,
+            relayRefreshToken: data.refresh_token || relayRefreshToken,
+          });
+          return data.access_token;
+        }
+      }
+    }
+
+    // No session — create anonymous user
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+      method: 'POST',
+      headers: { 'apikey': SUPABASE_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({}), // anonymous = no email/password
+    });
+    if (!res.ok) return SUPABASE_KEY; // fail open, use anon key
+    const data = await res.json();
+    if (data.access_token) {
+      await chrome.storage.local.set({
+        relayAuthToken:    data.access_token,
+        relayRefreshToken: data.refresh_token || '',
+        relayAuthUserId:   data.user?.id || '',
+      });
+      return data.access_token;
+    }
+  } catch {
+    // Auth failed — fall back to anon key (still works for legacy vaults)
+  }
+  return SUPABASE_KEY;
+}
+
+// ── Supabase REST client ─────────────────────────────────────────
 async function supabase(method, path, body) {
+  const token = await ensureAuth();
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     method,
     headers: {
       'apikey':        SUPABASE_KEY,
-      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Authorization': `Bearer ${token}`,
       'Content-Type':  'application/json',
       'Prefer':        'return=representation,resolution=merge-duplicates',
     },
     body: body ? JSON.stringify(body) : undefined,
   });
   if (!res.ok) {
+    // If 401, our token expired — clear it and retry once with fresh auth
+    if (res.status === 401) {
+      await chrome.storage.local.remove('relayAuthToken');
+      const freshToken = await ensureAuth();
+      const retry = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+        method,
+        headers: {
+          'apikey':        SUPABASE_KEY,
+          'Authorization': `Bearer ${freshToken}`,
+          'Content-Type':  'application/json',
+          'Prefer':        'return=representation,resolution=merge-duplicates',
+        },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      if (!retry.ok) {
+        const err = await retry.text().catch(() => `HTTP ${retry.status}`);
+        throw new Error(friendlyError(err));
+      }
+      const retryText = await retry.text();
+      return retryText ? JSON.parse(retryText) : null;
+    }
     const err = await res.text().catch(() => `HTTP ${res.status}`);
     throw new Error(friendlyError(err));
   }
@@ -300,9 +395,55 @@ async function listHistory(vaultId) {
   }
 }
 
+// ── Claim vault for authenticated user ───────────────────────────────
+// Links an existing vault row to the current auth.uid() so that
+// real RLS ownership can be enforced going forward.
+async function claimVault(vaultId) {
+  if (!isValidVaultKey(vaultId)) return;
+  try {
+    const token = await ensureAuth();
+    await fetch(`${SUPABASE_URL}/rest/v1/rpc/claim_vault`, {
+      method: 'POST',
+      headers: {
+        'apikey':        SUPABASE_KEY,
+        'Authorization': `Bearer ${token}`,
+        'Content-Type':  'application/json',
+      },
+      body: JSON.stringify({ p_vault_key: vaultId }),
+    });
+    // Errors are non-fatal — vault still works without claim
+  } catch {}
+}
+
 // ── Main bidirectional sync ───────────────────────────────────────────
 async function doSync(username, password, accountSalt) {
   const vaultId = await vaultKey(username, accountSalt);
+
+  // Ensure this device has an auth identity and vault is claimed under it.
+  // Non-blocking — runs in background, doesn't affect sync success.
+  claimVault(vaultId);
+
+  // Rate limit check — non-blocking, fail open if Edge Function unavailable
+  try {
+    const token = await ensureAuth();
+    const rl = await fetch(`${SUPABASE_URL}/functions/v1/sync-rate-limiter`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ vault_key: vaultId }),
+    });
+    if (rl.status === 429) {
+      const data = await rl.json().catch(() => ({}));
+      const window = data.window === 'minute' ? 'minute' : 'hour';
+      throw new Error(`RATE_LIMIT:${window}`);
+    }
+  } catch (e) {
+    // Only rethrow if it's our rate limit error, not a network failure
+    if (e.message?.startsWith('RATE_LIMIT:')) throw e;
+    // Otherwise fall through — fail open
+  }
 
   // Check plan first — needed for browser limit decision
   const planInfo = await getPlan(vaultId);
