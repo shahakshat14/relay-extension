@@ -247,7 +247,7 @@ async function runSync(username, password){
   btn.disabled=true;
   btn.classList.remove('done','error');btn.classList.add('syncing');
   const orb=q('mainOrb');if(orb)orb.className='orb syncing';
-  q('orbIco').textContent='⇄';
+  q('orbIco').innerHTML=`<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><polyline points="23 20 23 14 17 14"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10M23 14l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>`;
   q('orbLabel').textContent='Syncing…';
   q('orbSub').textContent='Encrypting your bookmarks…';
   clrT('toastMain');
@@ -261,7 +261,7 @@ async function runSync(username, password){
 
     btn.classList.remove('syncing');btn.classList.add('done');
     if(orb)orb.className='orb done';
-    q('orbIco').textContent='✓';
+    q('orbIco').innerHTML=`<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
     q('orbLabel').textContent=pulled>0?`${pulled} bookmark${pulled===1?'':'s'} added`:'All synced';
     q('orbSub').textContent=`${count} bookmarks synced`;
 
@@ -272,7 +272,7 @@ async function runSync(username, password){
     setTimeout(()=>{
       btn.disabled=false;btn.classList.remove('done');
       if(orb)orb.className='orb';
-      q('orbIco').textContent='⇄';
+      q('orbIco').innerHTML=`<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><polyline points="23 20 23 14 17 14"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10M23 14l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>`;
       q('orbLabel').textContent='Sync Now';
       q('orbSub').textContent=`Synced · ${age(new Date().toISOString())}`;
     },3200);
@@ -284,16 +284,16 @@ async function runSync(username, password){
 
     if(err.message.startsWith('FREE_LIMIT:')){
       const c=err.message.split(':')[1];
-      q('orbIco').textContent='⚡';
+      q('orbIco').innerHTML=`<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>`;
       q('orbLabel').textContent='Upgrade to sync all';
       q('orbSub').textContent=`${c} bookmarks — limit is 500`;
       const al=q('upgradeAlert');if(al)al.classList.add('show');
       btn.classList.remove('error');
-      setTimeout(()=>{btn.disabled=false;if(orb)orb.className='orb';q('orbIco').textContent='⇄';},1500);
+      setTimeout(()=>{btn.disabled=false;if(orb)orb.className='orb';q('orbIco').innerHTML=`<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><polyline points="23 20 23 14 17 14"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10M23 14l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>`;},1500);
       return;
     }
     if(err.message.startsWith('BROWSER_LIMIT:')){
-      q('orbIco').textContent='⚡';
+      q('orbIco').innerHTML=`<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>`;
       q('orbLabel').textContent='Browser limit reached';
       q('orbSub').textContent='Free plan supports 2 browsers';
       toast('toastMain','Free tier supports 2 browsers. Upgrade to add more.','err');
@@ -306,22 +306,22 @@ async function runSync(username, password){
         if(txt)txt.innerHTML='<b>Browser limit reached.</b>';
       }
       btn.classList.remove('error');
-      setTimeout(()=>{btn.disabled=false;if(orb)orb.className='orb';q('orbIco').textContent='⇄';q('orbLabel').textContent='Try Again';q('orbSub').textContent='';},2200);
+      setTimeout(()=>{btn.disabled=false;if(orb)orb.className='orb';q('orbIco').innerHTML=`<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><polyline points="23 20 23 14 17 14"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10M23 14l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>`;q('orbLabel').textContent='Try Again';q('orbSub').textContent='';},2200);
       return;
     }
 
     if(err.message.startsWith('MAINTENANCE:')){
       const msg = err.message.split(':').slice(1).join(':');
-      q('orbIco').textContent='🛠';
+      q('orbIco').innerHTML=`<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`;
       q('orbLabel').textContent='Maintenance';
       q('orbSub').textContent = msg || 'Relay is temporarily down. Check back soon.';
       btn.classList.remove('error');
-      setTimeout(()=>{btn.disabled=false;if(orb)orb.className='orb';q('orbIco').textContent='⇄';q('orbLabel').textContent='Try Again';q('orbSub').textContent='';},5000);
+      setTimeout(()=>{btn.disabled=false;if(orb)orb.className='orb';q('orbIco').innerHTML=`<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><polyline points="23 20 23 14 17 14"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10M23 14l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>`;q('orbLabel').textContent='Try Again';q('orbSub').textContent='';},5000);
       return;
     }
     if(err.message.startsWith('RATE_LIMIT:')){
       const window = err.message.split(':')[1];
-      q('orbIco').textContent='⏱';
+      q('orbIco').innerHTML=`<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 10"/></svg>`;
       q('orbLabel').textContent='Slow down';
       q('orbSub').textContent = window === 'minute'
         ? 'Syncing too fast — wait a moment'
@@ -330,14 +330,14 @@ async function runSync(username, password){
       setTimeout(()=>{
         btn.disabled=false;
         if(orb)orb.className='orb';
-        q('orbIco').textContent='⇄';
+        q('orbIco').innerHTML=`<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><polyline points="23 20 23 14 17 14"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10M23 14l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>`;
         q('orbLabel').textContent='Sync Now';
         q('orbSub').textContent='';
       }, window === 'minute' ? 15_000 : 60_000);
       return;
     }
 
-    q('orbIco').textContent='⚠';
+    q('orbIco').innerHTML=`<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
     q('orbLabel').textContent='Sync failed';
     q('orbSub').textContent='';
     toast('toastMain',err.message,'err');
@@ -345,7 +345,7 @@ async function runSync(username, password){
     setTimeout(()=>{
       btn.classList.remove('error');
       if(orb)orb.className='orb';
-      if(q('orbIco'))q('orbIco').textContent='⇄';
+      if(q('orbIco'))q('orbIco').innerHTML=`<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><polyline points="23 20 23 14 17 14"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10M23 14l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>`;
       if(q('orbLabel'))q('orbLabel').textContent='Try Again';
     },2200);
   }

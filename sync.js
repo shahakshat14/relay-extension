@@ -167,8 +167,7 @@ function sanitizeTitle(t, maxLen = 2000) {
 
 // FIX [C3]: Allowed URL protocols — blocks javascript:, data:, vbscript: etc.
 // Restrict to web protocols only.
-// Removed: file: (leaks local filesystem paths), chrome:/edge: (internal URLs
-// meaningless cross-browser), about: (browser-internal).
+// Removed: local-file paths, browser-internal URLs, and non-web schemes.
 const SAFE_PROTOCOLS = new Set(['http:', 'https:', 'ftp:', 'ftps:']);
 
 function isSafeUrl(url) {
