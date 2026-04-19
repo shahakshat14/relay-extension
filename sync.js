@@ -1,5 +1,10 @@
 'use strict';
 
+// ── Relay sync module ─────────────────────────────────────────────────
+// Wrapped in IIFE to prevent globals from being accessible via DevTools.
+// All functions needed by popup.js are explicitly exported via window.
+(function() {
+
 // ── Remote config ────────────────────────────────────────────────────
 // Fetches config from GitHub Pages on startup. Lets us change limits,
 // URLs, and feature flags without a Chrome Web Store submission.
@@ -85,7 +90,13 @@ async function clearAuthToken() {
 // If lastSeenUpdatedAt is provided, only patch when DB still has that timestamp.
 async function pushToCloud(vaultId, encryptedBlob, lastSeenUpdatedAt) {
   if (!isValidVaultKey(vaultId)) throw new Error('Invalid vault key.');
-  const body = { data: encryptedBlob, updated_at: new Date().toISOString() };
+  // Include write_token for server-side ownership verification
+  const { writeToken } = await chrome.storage.local.get('writeToken');
+  const body = {
+    data:       encryptedBlob,
+    updated_at: new Date().toISOString(),
+    ...(writeToken ? { write_token: writeToken } : {}),
+  };
 
   // Build URL with optional concurrency check
   let url = `${SUPABASE_URL}/rest/v1/vaults?vault_key=eq.${vaultId}`;
@@ -118,15 +129,25 @@ async function pushToCloud(vaultId, encryptedBlob, lastSeenUpdatedAt) {
       // Concurrency check failed — another browser pushed first
       throw new Error('Another browser synced first. Please sync again.');
     }
-    // Genuinely new vault
-    await supabase('POST', 'vaults', { vault_key: vaultId, ...body });
+    // Genuinely new vault — generate and store a write_token
+    const tokenBytes = crypto.getRandomValues(new Uint8Array(32));
+    const writeToken = Array.from(tokenBytes).map(b=>b.toString(16).padStart(2,'0')).join('');
+    await chrome.storage.local.set({ writeToken });
+    await supabase('POST', 'vaults', { vault_key: vaultId, write_token: writeToken, ...body });
   }
 }
 
 async function pullFromCloud(vaultId) {
   if (!isValidVaultKey(vaultId)) throw new Error('Invalid vault key.');
-  const rows = await supabase('GET', `vaults?vault_key=eq.${vaultId}&select=data,updated_at`);
+  const rows = await supabase('GET', `vaults?vault_key=eq.${vaultId}&select=data,updated_at,write_token`);
   if (!rows || rows.length === 0) return null;
+  // Cache write_token locally if we don't have it yet
+  if (rows[0].write_token) {
+    const { writeToken } = await chrome.storage.local.get('writeToken');
+    if (!writeToken) {
+      await chrome.storage.local.set({ writeToken: rows[0].write_token });
+    }
+  }
   return rows[0];
 }
 
@@ -385,12 +406,12 @@ async function doSync(username, password, accountSalt) {
 
   const snapshot = await getLocalSnapshot();
 
-  // Free tier limit from remote config (fallback: 500)
+  // Free tier limit — check remote config, fall back to 500
   const cfg = await getConfig();
   if (cfg.maintenance_mode) {
     throw new Error(`MAINTENANCE:${cfg.maintenance_message || 'Relay is temporarily down for maintenance.'}`);
   }
-  if (!isPro && snapshot.count > cfg.free_bookmark_limit) {
+  if (!isPro && snapshot.count > (cfg.free_bookmark_limit || 500)) {
     throw new Error(`FREE_LIMIT:${snapshot.count}`);
   }
 
@@ -448,3 +469,56 @@ async function restoreFromSnapshot(snapshotId, password, vaultId) {
 
   return { restored: added, count: snapshot.count };
 }
+
+
+
+// ── Gift code redemption ──────────────────────────────────────────────
+async function redeemGiftCode(code, vaultKey) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/redeem_gift_code`, {
+    method: 'POST',
+    headers: {
+      'apikey':        SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Content-Type':  'application/json',
+    },
+    body: JSON.stringify({ p_code: code, p_vault_key: vaultKey }),
+  });
+  if (!res.ok) throw new Error('Server error');
+  return await res.json().catch(() => null);
+}
+
+// ── Delete vault ──────────────────────────────────────────────────────
+async function deleteVault(vaultKey, hadRemoteData) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/vaults?vault_key=eq.${vaultKey}`, {
+    method: 'DELETE',
+    headers: {
+      'apikey':        SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Prefer':        'return=representation',
+    },
+  });
+  if (!res.ok) {
+    if (res.status === 401 || res.status === 403)
+      throw new Error('Server refused delete. Contact support.');
+    throw new Error('Delete failed: ' + res.status);
+  }
+  const deleted = await res.json().catch(() => []);
+  if (Array.isArray(deleted) && deleted.length === 0 && hadRemoteData) {
+    throw new Error("Server didn't delete the vault. Contact support.");
+  }
+}
+
+// ── Exports for popup.js ─────────────────────────────────────────────
+window._relay = {
+  doSync,
+  pullFromCloud,
+  checkUsernameAvailable,
+  getPlan,
+  listHistory,
+  restoreFromSnapshot,
+  clearAuthToken,
+  redeemGiftCode,
+  deleteVault,
+};
+
+})();

@@ -148,7 +148,7 @@ async function createAccountSalt() {
 // Helper: get vault key using stored salt (or legacy if no salt)
 async function myVaultKey() {
   const salt = await getAccountSalt();
-  return vaultKey(getU(), salt || undefined);
+  return _relayCrypto.vaultKey(getU(), salt || undefined);
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -253,8 +253,10 @@ async function runSync(username, password){
   clrT('toastMain');
 
   try{
-    const {pulled,count,plan}=await doSync(username,password,accountSalt);
+    const {pulled,count,plan}=await _relay.doSync(username,password,accountSalt);
     await chrome.storage.local.set({lastSync:new Date().toISOString(),plan,bmCount:count});
+    // P5: Don't scrub password — needed for subsequent syncs and auto-sync
+    // The trade-off: UX wins over marginal security gain here.
     chrome.action.setBadgeText({text:''}).catch(()=>{});
 
     btn.classList.remove('syncing');btn.classList.add('done');
@@ -388,7 +390,7 @@ async function goMain(initialSync=false){
   (async () => {
     try {
       const vk = await myVaultKey();
-      const planInfo = await getPlan(vk);
+      const planInfo = await _relay.getPlan(vk);
       const realPlan = planInfo.effective_plan;
       if (realPlan !== cachedPlan) {
         await chrome.storage.local.set({plan: realPlan});
@@ -422,7 +424,7 @@ let uTimer=null,uGen=0,uValid=false;
 async function checkUsername(username){
   const myGen=++uGen;
   const sEl=q('unameStatus'),mEl=q('unameMsg'),iEl=q('unameIcon'),inp=q('unameInput');
-  // unameIcon is optional (removed in v4.6 redesign)
+  // iEl will be null (unameIcon removed in v4.6) — setIcon() guards all uses
   const setIcon = (txt) => { if (iEl) iEl.textContent = txt; };
   const sugsEl=q('suggestions');
 
@@ -444,7 +446,7 @@ async function checkUsername(username){
   sEl.className='uname-status checking';sEl.style.opacity='1';
   mEl.textContent='Checking…';setIcon('·');
 
-  const avail=await checkUsernameAvailable(username);
+  const avail=await _relay.checkUsernameAvailable(username);
   if(myGen!==uGen)return;
 
   if(avail){
@@ -514,17 +516,17 @@ q('btnSignIn').addEventListener('click',async()=>{
     // Sign-in must first try with legacy key (no salt) since we don't have
     // the account salt yet — it lives in local storage of the device that created it.
     // If that fails we check if a salt exists locally (returning user on same device).
-    const legacyVk = await vaultKey(username); // no salt
+    const legacyVk = await _relayCrypto.vaultKey(username); // no salt
     const localSalt = await getAccountSalt();
-    const saltedVk  = localSalt ? await vaultKey(username, localSalt) : null;
+    const saltedVk  = localSalt ? await _relayCrypto.vaultKey(username, localSalt) : null;
 
-    if(!isValidVaultKey(legacyVk)) throw new Error('Invalid username.');
+    if(!_relayCrypto.isValidVaultKey(legacyVk)) throw new Error('Invalid username.');
 
     // Try salted first (existing device), then legacy
-    let remote = saltedVk ? await pullFromCloud(saltedVk) : null;
+    let remote = saltedVk ? await _relay.pullFromCloud(saltedVk) : null;
     let usedVk  = saltedVk;
     if (!remote?.data) {
-      remote = await pullFromCloud(legacyVk);
+      remote = await _relay.pullFromCloud(legacyVk);
       usedVk = legacyVk;
     }
 
@@ -534,7 +536,7 @@ q('btnSignIn').addEventListener('click',async()=>{
 
     // Verify password decrypts the vault
     try{
-      await decrypt(remote.data, password);
+      await _relayCrypto.decrypt(remote.data, password);
     }catch{
       throw new Error('Wrong password. Please try again.');
     }
@@ -656,7 +658,7 @@ q('btnCreate').addEventListener('click',async()=>{
   q('btnCreate').innerHTML='<span class="sp"></span> Creating…';
 
   try{
-    const avail=await checkUsernameAvailable(username);
+    const avail=await _relay.checkUsernameAvailable(username);
     if(!avail){
       toast('toastSetup','That username was just taken. Try another.','err');
       q('btnCreate').disabled=false;q('btnCreate').innerHTML='Create Account →';return;
@@ -732,7 +734,7 @@ q('btnShowHistory')?.addEventListener('click',async()=>{
   try{
     const u=getU();
     const vk=await myVaultKey();
-    const list=await listHistory(vk);
+    const list=await _relay.listHistory(vk);
     if(list.length===0){
       q('historyList').innerHTML='<div style="text-align:center;color:var(--t-2);padding:20px">No history yet. Sync to start tracking.</div>';
       return;
@@ -799,7 +801,7 @@ q('btnRestoreConfirm')?.addEventListener('click',async()=>{
     if(!u||!p)throw new Error('Session expired. Sign in again.');
     const vk=await myVaultKey();
     // FIX [M-13]: restoreFromSnapshot now validates decryption before merging
-    const {restored,count}=await restoreFromSnapshot(pendingRestoreId,p,vk);
+    const {restored,count}=await _relay.restoreFromSnapshot(pendingRestoreId,p,vk);
     await chrome.storage.local.set({bmCount:count,lastSync:new Date().toISOString()});
     toast('toastRestore',`Restored ${restored} bookmarks. Total: ${count}.`,'ok');
     setTimeout(async()=>{
@@ -830,7 +832,7 @@ q('btnLock').addEventListener('click',async()=>{
   if(accountSalt) await chrome.storage.local.set({accountSalt});
   // Auth tokens are user-bound — clear them so next user gets a fresh identity
   // (clearAuthToken is in sync.js scope via the shared supabase module)
-  try { await clearAuthToken(); } catch {}
+  try { await _relay.clearAuthToken(); } catch {}
 
   // Clear stale UI state so previous account's data doesn't briefly flash
   q('mainUsername').textContent='—';
@@ -872,19 +874,15 @@ q('btnRedeemGift')?.addEventListener('click',async()=>{
     const u=getU();
     if(!u){throw new Error('Session expired. Sign in again.');}
     const vk=await myVaultKey();
-    if(!isValidVaultKey(vk)){throw new Error('Invalid vault key.');}
-    const res=await fetch(`${SUPABASE_URL}/rest/v1/rpc/redeem_gift_code`,{
-      method:'POST',
-      headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`,'Content-Type':'application/json'},
-      body:JSON.stringify({p_code:code,p_vault_key:vk}),
-    });
-    if(!res.ok){
+    if(!_relayCrypto.isValidVaultKey(vk)){throw new Error('Invalid vault key.');}
+    let data;
+    try {
+      data = await _relay.redeemGiftCode(code, vk);
+    } catch {
       toast('toastGift','Server error. Try again.','err');
       btn.disabled=false;btn.innerHTML='Redeem →';
       return;
     }
-    let data;
-    try { data = await res.json(); } catch { data = null; }
     if(!data || !data.success){
       toast('toastGift',data.error||'Invalid code.','err');
     }else{
@@ -892,7 +890,7 @@ q('btnRedeemGift')?.addEventListener('click',async()=>{
       try {
         const u = getU();
         const vk = await myVaultKey();
-        const planInfo = await getPlan(vk);
+        const planInfo = await _relay.getPlan(vk);
         await chrome.storage.local.set({plan: planInfo.effective_plan});
         applyPlan(planInfo.effective_plan);
       } catch {
@@ -935,45 +933,23 @@ q('btnDeleteConfirm')?.addEventListener('click',async()=>{
     const vk = await myVaultKey();
 
     // FIX [MED-1]: Validate vault key format before any DB operation
-    if (!isValidVaultKey(vk)) throw new Error('Invalid vault key.');
+    if (!_relayCrypto.isValidVaultKey(vk)) throw new Error('Invalid vault key.');
 
     // FIX [CRIT-1]: Verify password is correct BEFORE allowing delete.
     // Pull the encrypted blob and try to decrypt — only proceed if it works.
     // This prevents anyone-with-username from deleting other people's vaults.
-    const remote = await pullFromCloud(vk);
+    const remote = await _relay.pullFromCloud(vk);
     if (remote?.data) {
       try {
-        await decrypt(remote.data, p);
+        await _relayCrypto.decrypt(remote.data, p);
       } catch {
         throw new Error('Password verification failed. Cannot delete.');
       }
     }
     // (If no remote data, vault is local-only — safe to clear)
 
-    // Use ?Prefer header to get back the deleted rows so we can verify
-    const res=await fetch(`${SUPABASE_URL}/rest/v1/vaults?vault_key=eq.${vk}`,{
-      method:'DELETE',
-      headers:{
-        'apikey':SUPABASE_KEY,
-        'Authorization':`Bearer ${SUPABASE_KEY}`,
-        'Prefer':'return=representation',
-      },
-    });
-
-    if(!res.ok){
-      const err = await res.text().catch(() => '');
-      // RLS blocks DELETE — that's actually correct behaviour now
-      if (res.status === 401 || res.status === 403) {
-        throw new Error('Server refused delete. Contact support.');
-      }
-      throw new Error('Delete failed: '+(err || res.status));
-    }
-
-    // Verify something was actually deleted (RLS might silently succeed with 0 rows)
-    const deletedRows = await res.json().catch(() => []);
-    if (Array.isArray(deletedRows) && deletedRows.length === 0 && remote?.data) {
-      throw new Error('Server didn\'t delete the vault. Contact support.');
-    }
+    // Delete via relay module — keeps Supabase credentials out of popup scope
+    await _relay.deleteVault(vk, remote?.data);
 
     await clearSession();
     await chrome.storage.local.clear();

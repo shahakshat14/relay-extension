@@ -1,5 +1,9 @@
 'use strict';
 
+// ── Relay crypto module ───────────────────────────────────────────────
+// Wrapped in IIFE to prevent globals from being accessible via DevTools.
+(function() {
+
 const ENC = new TextEncoder();
 const DEC = new TextDecoder();
 
@@ -105,3 +109,9 @@ async function vaultKey(username, accountSalt) {
 function isValidVaultKey(vk) {
   return typeof vk === 'string' && /^[a-f0-9]{64}$/.test(vk);
 }
+
+
+// ── Exports ───────────────────────────────────────────────────────────
+window._relayCrypto = { encrypt, decrypt, vaultKey, isValidVaultKey };
+
+})();
