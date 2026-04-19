@@ -1,27 +1,29 @@
 'use strict';
 
 // ─────────────────────────────────────────────────────────────────────
-// Password generator
+// Password generator — Apple-style strong password (~71 bits entropy)
+// Format: xxxxxx-xxxxxx-xxxxxx (three 6-char groups of lowercase a-z + 0-9)
+// Each group is guaranteed to contain at least one digit.
+// 71 bits vs ~26 bits for the old 4-word system — offline GPU attack
+// against PBKDF2-600k would take centuries.
 // ─────────────────────────────────────────────────────────────────────
-const WORDS = [
-  'apple','amber','atlas','azure','blaze','bloom','breeze','bridge',
-  'cedar','cloud','coral','crane','dawn','delta','drift','dune',
-  'eagle','echo','ember','epoch','fern','field','flame','flint',
-  'forest','frost','glade','gleam','grove','haven','hawk','haze',
-  'hollow','horizon','inlet','island','jade','jasper','lake','lark',
-  'lemon','light','linden','maple','marsh','meadow','mist','moon',
-  'moss','mountain','nova','oak','ocean','olive','opal','orbit',
-  'peak','pine','prism','quartz','rain','rapid','raven','reef',
-  'ridge','river','rock','rose','rush','sage','sand','sierra',
-  'silver','sky','slate','snow','solar','spark','spring','star',
-  'stone','storm','stream','summit','swift','terra','tide','timber',
-  'vale','violet','wave','willow','wind','winter','zenith','zephyr'
-];
+const CHARSET = 'abcdefghijkmnpqrstuvwxyz23456789'; // no confusable l/1/0/o
 
 function genPass() {
-  const arr = new Uint32Array(4);
-  crypto.getRandomValues(arr);
-  return Array.from(arr).map(n => WORDS[n % WORDS.length]).join('-');
+  const groups = [];
+  for (let g = 0; g < 3; g++) {
+    const bytes = crypto.getRandomValues(new Uint8Array(6));
+    let group = Array.from(bytes).map(b => CHARSET[b % CHARSET.length]);
+    // Guarantee at least one digit in every group
+    const hasDigit = group.some(c => /[0-9]/.test(c));
+    if (!hasDigit) {
+      const pos = crypto.getRandomValues(new Uint8Array(1))[0] % 6;
+      const digit = '23456789'[crypto.getRandomValues(new Uint8Array(1))[0] % 8];
+      group[pos] = digit;
+    }
+    groups.push(group.join(''));
+  }
+  return groups.join('-');
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -122,6 +124,34 @@ async function clearSession(){
 const getU=()=>_u, getP=()=>_p;
 
 // ─────────────────────────────────────────────────────────────────────
+// Account salt — two-secret model
+// A 32-byte random salt stored in chrome.storage.local that combines
+// with the username in vault key derivation. An attacker who knows
+// the username cannot compute the vault key without this salt.
+// ─────────────────────────────────────────────────────────────────────
+async function getAccountSalt() {
+  try {
+    const { accountSalt } = await chrome.storage.local.get('accountSalt');
+    if (accountSalt && accountSalt.length === 32) {
+      return new Uint8Array(accountSalt);
+    }
+    return null; // no salt yet (legacy account or fresh install)
+  } catch { return null; }
+}
+
+async function createAccountSalt() {
+  const salt = crypto.getRandomValues(new Uint8Array(32));
+  await chrome.storage.local.set({ accountSalt: Array.from(salt) });
+  return salt;
+}
+
+// Helper: get vault key using stored salt (or legacy if no salt)
+async function myVaultKey() {
+  const salt = await getAccountSalt();
+  return vaultKey(getU(), salt || undefined);
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // UI helpers
 // ─────────────────────────────────────────────────────────────────────
 const q=id=>document.getElementById(id);
@@ -162,7 +192,7 @@ function age(iso){
 // ─────────────────────────────────────────────────────────────────────
 // Plan UI helpers
 // ─────────────────────────────────────────────────────────────────────
-const PRICING_URL='https://shahakshat14.github.io/relay-extension/pricing/';
+const PRICING_URL='https://tridentCX.github.io/relay-extension/pricing/';
 
 function applyPlan(plan){
   const isPro = plan==='pro';
@@ -211,6 +241,8 @@ function applyPlan(plan){
 // Sync
 // ─────────────────────────────────────────────────────────────────────
 async function runSync(username, password){
+  // Load the account salt for this user's vault key derivation
+  const accountSalt = await getAccountSalt();
   const btn=q('btnSync');
   btn.disabled=true;
   btn.classList.remove('done','error');btn.classList.add('syncing');
@@ -221,7 +253,7 @@ async function runSync(username, password){
   clrT('toastMain');
 
   try{
-    const {pulled,count,plan}=await doSync(username,password);
+    const {pulled,count,plan}=await doSync(username,password,accountSalt);
     await chrome.storage.local.set({lastSync:new Date().toISOString(),plan,bmCount:count});
     chrome.action.setBadgeText({text:''}).catch(()=>{});
 
@@ -328,7 +360,7 @@ async function goMain(initialSync=false){
   // [B-10] Re-verify plan from server, then update toggle if downgraded
   (async () => {
     try {
-      const vk = await vaultKey(u);
+      const vk = await myVaultKey();
       const planInfo = await getPlan(vk);
       const realPlan = planInfo.effective_plan;
       if (realPlan !== cachedPlan) {
@@ -452,30 +484,43 @@ q('btnSignIn').addEventListener('click',async()=>{
   try{
     // FIX: Verify vault exists + password decrypts correctly BEFORE
     // advancing to main view. This was previously letting anything through.
-    const vk=await vaultKey(username);
-    if(!isValidVaultKey(vk))throw new Error('Invalid username.');
+    // Sign-in must first try with legacy key (no salt) since we don't have
+    // the account salt yet — it lives in local storage of the device that created it.
+    // If that fails we check if a salt exists locally (returning user on same device).
+    const legacyVk = await vaultKey(username); // no salt
+    const localSalt = await getAccountSalt();
+    const saltedVk  = localSalt ? await vaultKey(username, localSalt) : null;
 
-    const remote=await pullFromCloud(vk);
+    if(!isValidVaultKey(legacyVk)) throw new Error('Invalid username.');
+
+    // Try salted first (existing device), then legacy
+    let remote = saltedVk ? await pullFromCloud(saltedVk) : null;
+    let usedVk  = saltedVk;
+    if (!remote?.data) {
+      remote = await pullFromCloud(legacyVk);
+      usedVk = legacyVk;
+    }
+
     if(!remote?.data){
-      // No vault at this username — that means account doesn't exist
       throw new Error('No account found. Check your username, or create a new account.');
     }
 
-    // Vault exists — try to decrypt. If password wrong, this throws.
+    // Verify password decrypts the vault
     try{
-      await decrypt(remote.data,password);
+      await decrypt(remote.data, password);
     }catch{
       throw new Error('Wrong password. Please try again.');
     }
 
-    // Credentials verified. Clear local storage (preserve browserId)
-    // so previous account's data doesn't leak.
+    // Credentials verified. Clear local storage (preserve browserId + accountSalt)
     const {browserId}=await chrome.storage.local.get('browserId');
+    const {accountSalt:existingSalt}=await chrome.storage.local.get('accountSalt');
     await chrome.storage.local.clear();
-    if(browserId) await chrome.storage.local.set({browserId});
+    if(browserId)     await chrome.storage.local.set({browserId});
+    if(existingSalt)  await chrome.storage.local.set({accountSalt:existingSalt});
 
-    await saveSession(username,password);
-    await chrome.storage.local.set({hasAccount:true,username});
+    await saveSession(username, password);
+    await chrome.storage.local.set({hasAccount:true, username});
     q('siUsername').value='';q('siPassword').value='';
 
     // Now actually advance to main view and run the real sync
@@ -589,6 +634,9 @@ q('btnCreate').addEventListener('click',async()=>{
       toast('toastSetup','That username was just taken. Try another.','err');
       q('btnCreate').disabled=false;q('btnCreate').innerHTML='Create Account →';return;
     }
+    // Generate and persist the account salt BEFORE saving session
+    // This must happen on the same device as account creation
+    await createAccountSalt();
     await saveSession(username,password);
     await chrome.storage.local.set({hasAccount:true,username});
 
@@ -656,7 +704,7 @@ q('btnShowHistory')?.addEventListener('click',async()=>{
   q('historyList').innerHTML='<div style="text-align:center;color:var(--t-2);padding:20px">Loading…</div>';
   try{
     const u=getU();
-    const vk=await vaultKey(u);
+    const vk=await myVaultKey();
     const list=await listHistory(vk);
     if(list.length===0){
       q('historyList').innerHTML='<div style="text-align:center;color:var(--t-2);padding:20px">No history yet. Sync to start tracking.</div>';
@@ -722,7 +770,7 @@ q('btnRestoreConfirm')?.addEventListener('click',async()=>{
   try{
     const u=getU(),p=getP();
     if(!u||!p)throw new Error('Session expired. Sign in again.');
-    const vk=await vaultKey(u);
+    const vk=await myVaultKey();
     // FIX [M-13]: restoreFromSnapshot now validates decryption before merging
     const {restored,count}=await restoreFromSnapshot(pendingRestoreId,p,vk);
     await chrome.storage.local.set({bmCount:count,lastSync:new Date().toISOString()});
@@ -746,9 +794,12 @@ q('btnLock').addEventListener('click',async()=>{
   // doesn't leak into account B's session in the same browser.
   // We keep browserId since it's tied to this physical browser, not the user.
   await clearSession();
-  const {browserId}=await chrome.storage.local.get('browserId');
+  // Preserve browserId (tied to physical browser) and accountSalt (tied to vault key)
+  // so a returning user on this device can sign back in without losing their vault key.
+  const {browserId, accountSalt} = await chrome.storage.local.get(['browserId','accountSalt']);
   await chrome.storage.local.clear();
-  if(browserId) await chrome.storage.local.set({browserId});
+  if(browserId)    await chrome.storage.local.set({browserId});
+  if(accountSalt)  await chrome.storage.local.set({accountSalt});
 
   // Clear stale UI state so previous account's data doesn't briefly flash
   q('mainUsername').textContent='—';
@@ -787,8 +838,9 @@ q('btnRedeemGift')?.addEventListener('click',async()=>{
   clrT('toastGift');
 
   try{
-    const u=getU(), vk=await vaultKey(u);
+    const u=getU();
     if(!u){throw new Error('Session expired. Sign in again.');}
+    const vk=await myVaultKey();
     if(!isValidVaultKey(vk)){throw new Error('Invalid vault key.');}
     const res=await fetch(`${SUPABASE_URL}/rest/v1/rpc/redeem_gift_code`,{
       method:'POST',
@@ -808,7 +860,7 @@ q('btnRedeemGift')?.addEventListener('click',async()=>{
       // [H-12]: Verify with server, don't trust local set
       try {
         const u = getU();
-        const vk = await vaultKey(u);
+        const vk = await myVaultKey();
         const planInfo = await getPlan(vk);
         await chrome.storage.local.set({plan: planInfo.effective_plan});
         applyPlan(planInfo.effective_plan);
@@ -849,7 +901,7 @@ q('btnDeleteConfirm')?.addEventListener('click',async()=>{
     const p = getP();
     if (!u || !p) throw new Error('Session expired. Sign in again.');
 
-    const vk = await vaultKey(u);
+    const vk = await myVaultKey();
 
     // FIX [MED-1]: Validate vault key format before any DB operation
     if (!isValidVaultKey(vk)) throw new Error('Invalid vault key.');

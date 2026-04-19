@@ -101,7 +101,10 @@ function sanitizeTitle(t, maxLen = 2000) {
 }
 
 // FIX [C3]: Allowed URL protocols — blocks javascript:, data:, vbscript: etc.
-const SAFE_PROTOCOLS = new Set(['http:', 'https:', 'ftp:', 'ftps:', 'chrome:', 'edge:', 'about:', 'file:']);
+// Restrict to web protocols only.
+// Removed: file: (leaks local filesystem paths), chrome:/edge: (internal URLs
+// meaningless cross-browser), about: (browser-internal).
+const SAFE_PROTOCOLS = new Set(['http:', 'https:', 'ftp:', 'ftps:']);
 
 function isSafeUrl(url) {
   if (!url || typeof url !== 'string') return false;
@@ -298,8 +301,8 @@ async function listHistory(vaultId) {
 }
 
 // ── Main bidirectional sync ───────────────────────────────────────────
-async function doSync(username, password) {
-  const vaultId = await vaultKey(username);
+async function doSync(username, password, accountSalt) {
+  const vaultId = await vaultKey(username, accountSalt);
 
   // Check plan first — needed for browser limit decision
   const planInfo = await getPlan(vaultId);

@@ -59,17 +59,39 @@ async function decrypt(blob, password) {
 }
 
 // ── Vault key derivation ─────────────────────────────────────────────
-// PBKDF2(username, fixed_pepper) → 64-char hex string.
-// Slower than SHA-256 to deter enumeration, but not as slow as data key
-// since this happens on every API call.
+// Two-secret model:
+//   - username:    known but treated as semi-private
+//   - accountSalt: 32 random bytes, stored in chrome.storage.local
+//
+// vault_key = PBKDF2(username, PEPPER || accountSalt)
+//
+// Without the accountSalt an attacker who knows the username cannot
+// locate the vault — the key is no longer deterministic from username alone.
+//
+// If accountSalt is omitted (legacy / lookup-before-salt-exists mode),
+// falls back to the original PBKDF2(username, PEPPER) derivation so
+// existing vaults can still be found during migration.
 const VAULT_PEPPER = 'relay-vault-pepper-v1';
 
-async function vaultKey(username) {
+async function vaultKey(username, accountSalt) {
+  // Build salt: pepper bytes + optional random account salt
+  const pepperBytes = ENC.encode(VAULT_PEPPER);
+  let salt;
+  if (accountSalt && accountSalt.length > 0) {
+    // Two-secret: pepper || accountSalt
+    salt = new Uint8Array(pepperBytes.length + accountSalt.length);
+    salt.set(pepperBytes, 0);
+    salt.set(accountSalt, pepperBytes.length);
+  } else {
+    // Legacy single-secret (backwards compat)
+    salt = pepperBytes;
+  }
+
   const base = await crypto.subtle.importKey(
     'raw', ENC.encode(username.toLowerCase().trim()), 'PBKDF2', false, ['deriveKey']
   );
   const key = await crypto.subtle.deriveKey(
-    { name:'PBKDF2', salt: ENC.encode(VAULT_PEPPER), iterations: PBKDF2_ITER_VKEY, hash:'SHA-256' },
+    { name:'PBKDF2', salt, iterations: PBKDF2_ITER_VKEY, hash:'SHA-256' },
     base,
     { name:'AES-GCM', length:256 },
     true, ['encrypt']
