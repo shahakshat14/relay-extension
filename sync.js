@@ -16,125 +16,37 @@ function friendlyError(raw) {
   return 'Sync failed. Please try again.';
 }
 
-// ── Auth token management ──────────────────────────────────────────
-// Returns the current JWT access token, or falls back to anon key.
-// We store the token in chrome.storage.local after signIn/signUp.
-async function getAuthToken() {
-  try {
-    const { relayAuthToken } = await chrome.storage.local.get('relayAuthToken');
-    if (relayAuthToken) return relayAuthToken;
-  } catch {}
-  return SUPABASE_KEY; // fallback for unauthenticated requests
-}
-
-async function setAuthToken(token) {
-  try { await chrome.storage.local.set({ relayAuthToken: token }); } catch {}
-}
-
-async function clearAuthToken() {
-  try { await chrome.storage.local.remove('relayAuthToken'); } catch {}
-}
-
-// ── Supabase Auth — anonymous sign-in ───────────────────────────
-// Creates a real anonymous user in auth.users the first time.
-// Subsequent calls refresh the session using the stored refresh token.
-async function ensureAuth() {
-  try {
-    const { relayAuthToken, relayRefreshToken } = await chrome.storage.local.get(
-      ['relayAuthToken', 'relayRefreshToken']
-    );
-
-    // Already have a valid token
-    if (relayAuthToken) return relayAuthToken;
-
-    // Try to refresh existing session
-    if (relayRefreshToken) {
-      const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
-        method: 'POST',
-        headers: { 'apikey': SUPABASE_KEY, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refresh_token: relayRefreshToken }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.access_token) {
-          await chrome.storage.local.set({
-            relayAuthToken:    data.access_token,
-            relayRefreshToken: data.refresh_token || relayRefreshToken,
-          });
-          return data.access_token;
-        }
-      }
-    }
-
-    // No session — create anonymous user via the correct grant type endpoint
-    const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=anonymous`, {
-      method: 'POST',
-      headers: { 'apikey': SUPABASE_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({}),
-    });
-    if (!res.ok) {
-      const errText = await res.text().catch(() => `HTTP ${res.status}`);
-      console.warn('[Relay] Anonymous auth failed:', res.status, errText);
-      return SUPABASE_KEY;
-    }
-    const data = await res.json();
-    if (data.access_token) {
-      await chrome.storage.local.set({
-        relayAuthToken:    data.access_token,
-        relayRefreshToken: data.refresh_token || '',
-        relayAuthUserId:   data.user?.id || '',
-      });
-      console.log('[Relay] Auth OK, user:', data.user?.id);
-      return data.access_token;
-    }
-    // Response was OK but no access_token — log the full response
-    console.warn('[Relay] Auth response had no access_token:', JSON.stringify(data));
-  } catch (err) {
-    console.warn('[Relay] Auth exception:', err?.message);
-  }
-  return SUPABASE_KEY;
-}
-
 // ── Supabase REST client ─────────────────────────────────────────
+// Uses the public anon key. Security is provided by:
+//   1. RLS policies enforcing vault_key format validation
+//   2. Two-secret vault key model (username + device salt)
+//   3. AES-256-GCM encryption — server never sees plaintext
+// Level 2 (Supabase anonymous auth) will be added when the
+// project's GoTrue version supports grant_type=anonymous.
 async function supabase(method, path, body) {
-  const token = await ensureAuth();
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     method,
     headers: {
       'apikey':        SUPABASE_KEY,
-      'Authorization': `Bearer ${token}`,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
       'Content-Type':  'application/json',
       'Prefer':        'return=representation,resolution=merge-duplicates',
     },
     body: body ? JSON.stringify(body) : undefined,
   });
   if (!res.ok) {
-    // If 401, our token expired — clear it and retry once with fresh auth
-    if (res.status === 401) {
-      await chrome.storage.local.remove('relayAuthToken');
-      const freshToken = await ensureAuth();
-      const retry = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
-        method,
-        headers: {
-          'apikey':        SUPABASE_KEY,
-          'Authorization': `Bearer ${freshToken}`,
-          'Content-Type':  'application/json',
-          'Prefer':        'return=representation,resolution=merge-duplicates',
-        },
-        body: body ? JSON.stringify(body) : undefined,
-      });
-      if (!retry.ok) {
-        const err = await retry.text().catch(() => `HTTP ${retry.status}`);
-        throw new Error(friendlyError(err));
-      }
-      const retryText = await retry.text();
-      return retryText ? JSON.parse(retryText) : null;
-    }
     const err = await res.text().catch(() => `HTTP ${res.status}`);
     throw new Error(friendlyError(err));
   }
   const text = await res.text();
   return text ? JSON.parse(text) : null;
+}
+
+// Stub for future Level 2 — keeps popup.js sign-out handler working
+async function clearAuthToken() {
+  try {
+    await chrome.storage.local.remove(['relayAuthToken','relayRefreshToken','relayAuthUserId']);
+  } catch {}
 }
 
 // FIX [C2]: Check patchRes.ok before parsing ──────────────────────────
@@ -402,33 +314,9 @@ async function listHistory(vaultId) {
   }
 }
 
-// ── Claim vault for authenticated user ───────────────────────────────
-// Links an existing vault row to the current auth.uid() so that
-// real RLS ownership can be enforced going forward.
-async function claimVault(vaultId) {
-  if (!isValidVaultKey(vaultId)) return;
-  try {
-    const token = await ensureAuth();
-    await fetch(`${SUPABASE_URL}/rest/v1/rpc/claim_vault`, {
-      method: 'POST',
-      headers: {
-        'apikey':        SUPABASE_KEY,
-        'Authorization': `Bearer ${token}`,
-        'Content-Type':  'application/json',
-      },
-      body: JSON.stringify({ p_vault_key: vaultId }),
-    });
-    // Errors are non-fatal — vault still works without claim
-  } catch {}
-}
-
 // ── Main bidirectional sync ───────────────────────────────────────────
 async function doSync(username, password, accountSalt) {
   const vaultId = await vaultKey(username, accountSalt);
-
-  // Ensure this device has an auth identity and vault is claimed under it.
-  // Non-blocking — runs in background, doesn't affect sync success.
-  claimVault(vaultId);
 
   // Rate limiter is deployed separately via Edge Function.
   // Removed from sync path until function is confirmed deployed.
