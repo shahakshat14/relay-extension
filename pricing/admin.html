@@ -28,8 +28,7 @@ h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
   flex: 1; min-width: 140px; padding: 10px 13px;
   background: #0f0f12; border: 1px solid rgba(255,255,255,.1);
   border-radius: 9px; color: #f0f0f0; font-size: 13.5px;
-  font-family: inherit; outline: none;
-  transition: border-color .15s;
+  font-family: inherit; outline: none; transition: border-color .15s;
 }
 .inp:focus { border-color: rgba(67,97,238,.5); }
 .inp::placeholder { color: #404048; }
@@ -39,13 +38,13 @@ h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
   font-size: 13.5px; font-weight: 600; cursor: pointer;
   font-family: inherit; transition: all .15s; white-space: nowrap;
 }
-.btn-blue { background: #4361ee; color: #fff; }
-.btn-blue:hover { background: #3451d1; }
-.btn-blue:disabled { opacity: .4; cursor: default; }
+.btn-blue  { background: #4361ee; color: #fff; }
+.btn-blue:hover  { background: #3451d1; }
+.btn-blue:disabled  { opacity: .4; cursor: default; }
+.btn-red   { background: rgba(231,76,60,.15); color: #e74c3c; border: 1px solid rgba(231,76,60,.3); }
+.btn-red:hover { background: rgba(231,76,60,.25); }
 
-.codes-list {
-  display: flex; flex-direction: column; gap: 8px; margin-top: 16px;
-}
+.codes-list { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
 
 .code-item {
   display: flex; align-items: center; gap: 10px;
@@ -64,10 +63,7 @@ h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
 }
 .copy-btn:hover { opacity: .7; }
 
-.tag {
-  font-size: 10px; font-weight: 600; padding: 2px 7px;
-  border-radius: 20px; white-space: nowrap;
-}
+.tag { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 20px; white-space: nowrap; }
 .tag-free { background: rgba(45,198,83,.12); color: #2dc653; }
 .tag-used { background: rgba(255,255,255,.06); color: #60606a; }
 
@@ -75,32 +71,37 @@ h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
   position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
   background: #1a1a24; border: 1px solid rgba(255,255,255,.1);
   border-radius: 10px; padding: 10px 18px; font-size: 13px;
-  display: none; white-space: nowrap;
+  display: none; white-space: nowrap; z-index: 100;
 }
 .toast-g.show { display: block; animation: fadeUp .2s ease; }
-@keyframes fadeUp { from{opacity:0;transform:translateX(-50%) translateY(6px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
-
-/* Password gate */
-.gate {
-  max-width: 320px; margin: 120px auto;
-  text-align: center;
+@keyframes fadeUp {
+  from { opacity:0; transform:translateX(-50%) translateY(6px); }
+  to   { opacity:1; transform:translateX(-50%) translateY(0); }
 }
+
+.gate { max-width: 320px; margin: 120px auto; text-align: center; }
 .gate h2 { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
 .gate p  { font-size: 13px; color: #60606a; margin-bottom: 20px; }
 
-.sp { display:inline-block; width:12px; height:12px; border:2px solid rgba(255,255,255,.2); border-top-color:#fff; border-radius:50%; animation:spin .65s linear infinite; margin-right:6px; }
-@keyframes spin{to{transform:rotate(360deg)}}
+.sp {
+  display: inline-block; width: 12px; height: 12px;
+  border: 2px solid rgba(255,255,255,.2); border-top-color: #fff;
+  border-radius: 50%; animation: spin .65s linear infinite; margin-right: 6px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.err-msg { font-size: 12px; color: #e63946; margin-top: 8px; }
 </style>
 </head>
 <body>
 
-<!-- Password gate — simple protection -->
 <div id="gate" class="gate">
   <h2>🔐 Relay Admin</h2>
   <p>Enter your admin password to continue.</p>
-  <input class="inp" id="gateInput" type="password" placeholder="Admin password…" style="width:100%;margin-bottom:10px;text-align:center">
-  <button class="btn btn-blue" style="width:100%" onclick="checkGate().catch(()=>{})">Enter</button>
-  <div id="gateErr" style="font-size:12px;color:#e63946;margin-top:8px"></div>
+  <input class="inp" id="gateInput" type="password" placeholder="Admin password…"
+    style="width:100%;margin-bottom:10px;text-align:center">
+  <button class="btn btn-blue" style="width:100%" id="gateBtn" onclick="checkGate()">Enter</button>
+  <div class="err-msg" id="gateErr"></div>
 </div>
 
 <div id="app" style="display:none">
@@ -108,23 +109,25 @@ h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
   <h1>Relay Admin</h1>
   <div class="sub">Generate and manage gift codes</div>
 
-  <!-- Generate codes -->
   <div class="card">
     <h2>Generate Gift Codes</h2>
     <div class="row">
-      <input class="inp" id="numCodes" type="number" value="1" min="1" max="50" placeholder="Count" style="max-width:80px">
-      <input class="inp" id="codeDays" type="number" value="365" min="1" placeholder="Days" style="max-width:100px">
-      <input class="inp" id="codeNote" type="text" placeholder="Note (e.g. for John)" style="flex:2">
+      <input class="inp" id="numCodes" type="number" value="1" min="1" max="50"
+        placeholder="Count" style="max-width:80px">
+      <input class="inp" id="codeDays" type="number" value="365" min="1"
+        placeholder="Days" style="max-width:100px">
+      <input class="inp" id="codeNote" type="text"
+        placeholder="Note (e.g. for John)" style="flex:2">
       <button class="btn btn-blue" id="btnGenerate" onclick="generateCodes()">Generate</button>
     </div>
     <div id="newCodes" class="codes-list"></div>
   </div>
 
-  <!-- All codes -->
   <div class="card">
     <h2>All Codes</h2>
     <div class="row" style="margin-bottom:0">
-      <input class="inp" id="filterInput" placeholder="Search codes or notes…" oninput="filterCodes()">
+      <input class="inp" id="filterInput" placeholder="Search codes or notes…"
+        oninput="loadCodes(this.value)">
     </div>
     <div id="allCodes" class="codes-list"></div>
   </div>
@@ -134,30 +137,40 @@ h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
 <div class="toast-g" id="toastG"></div>
 
 <script>
-const SUPABASE_URL      = 'https://mgeiplftbehngfsqtbiq.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_3BVQxcUH_AljAaamBNrhBA_7knbqxFI';
+const SUPABASE_URL  = 'https://mgeiplftbehngfsqtbiq.supabase.co';
+const ADMIN_FN_URL  = `${SUPABASE_URL}/functions/v1/admin-gift-codes`;
+const SUPABASE_KEY  = 'sb_publishable_3BVQxcUH_AljAaamBNrhBA_7knbqxFI';
 
-// Simple admin password — change this to something only you know
-// This is just a client-side gate, not true security — the real security
-// is that only you know this page exists
-// FIX [H-5]: Hashed password — plaintext no longer visible in source
-const ADMIN_PASSWORD_HASH = 'b957247d12cbcd43ed6b691b4e883d14c27df4b2922e0390357d190d94cf6c64';
+let adminPassword = ''; // kept in memory only, never stored
 
-let allCodesData = [];
-
+// ── Auth gate ───────────────────────────────────────────────────
 async function checkGate() {
-  const val = document.getElementById('gateInput').value;
-  // FIX [H-5]: Hash input and compare to stored hash, not plaintext
-  const buf = new TextEncoder().encode(val);
-  const hashBuf = await crypto.subtle.digest('SHA-256', buf);
-  const hash = Array.from(new Uint8Array(hashBuf))
-    .map(b => b.toString(16).padStart(2,'0')).join('');
-  if (hash === ADMIN_PASSWORD_HASH) {
+  const pwd = document.getElementById('gateInput').value;
+  if (!pwd) return;
+
+  const btn = document.getElementById('gateBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="sp"></span> Checking…';
+  document.getElementById('gateErr').textContent = '';
+
+  // Verify by making a real API call — if it works, password is correct
+  try {
+    const res = await api('list', { password: pwd });
+    if (res.error === 'Unauthorized') {
+      document.getElementById('gateErr').textContent = 'Wrong password.';
+      btn.disabled = false;
+      btn.textContent = 'Enter';
+      return;
+    }
+    // Success — store password in memory and show app
+    adminPassword = pwd;
     document.getElementById('gate').style.display = 'none';
-    document.getElementById('app').style.display = 'block';
-    loadCodes();
-  } else {
-    document.getElementById('gateErr').textContent = 'Wrong password.';
+    document.getElementById('app').style.display  = 'block';
+    renderCodes(res.codes || []);
+  } catch (err) {
+    document.getElementById('gateErr').textContent = 'Connection error. Try again.';
+    btn.disabled = false;
+    btn.textContent = 'Enter';
   }
 }
 
@@ -165,101 +178,103 @@ document.getElementById('gateInput').addEventListener('keydown', async (e) => {
   if (e.key === 'Enter') await checkGate();
 });
 
-async function sb(method, path, body) {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
-    method,
+// ── API wrapper — all calls go through the Edge Function ────────
+async function api(action, extra = {}) {
+  const res = await fetch(ADMIN_FN_URL, {
+    method: 'POST',
     headers: {
-      'apikey': SUPABASE_ANON_KEY,
-      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-      'Content-Type': 'application/json',
-      'Prefer': 'return=representation',
+      'apikey':        SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Content-Type':  'application/json',
     },
-    body: body ? JSON.stringify(body) : undefined,
+    body: JSON.stringify({ action, password: adminPassword, ...extra }),
   });
-  const text = await res.text();
-  return text ? JSON.parse(text) : null;
+  return await res.json();
 }
 
-function randomCode() {
-  // Format: XXXX-XXXX-XXXX — easy to read and share
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no confusable chars
-  const seg = () => Array.from(crypto.getRandomValues(new Uint8Array(4)))
-    .map(b => chars[b % chars.length]).join('');
-  return `${seg()}-${seg()}-${seg()}`;
-}
-
+// ── Generate codes ──────────────────────────────────────────────
 async function generateCodes() {
-  const count = parseInt(document.getElementById('numCodes').value) || 1;
-  const days  = parseInt(document.getElementById('codeDays').value) || 365;
+  const count = document.getElementById('numCodes').value;
+  const days  = document.getElementById('codeDays').value;
   const note  = document.getElementById('codeNote').value.trim();
 
   const btn = document.getElementById('btnGenerate');
   btn.disabled = true;
   btn.innerHTML = '<span class="sp"></span>';
 
-  const codes = Array.from({length: count}, () => ({
-    code: randomCode(),
-    duration_days: days,
-    note: note || null,
-  }));
+  try {
+    const res = await api('generate', { count, days, note });
+    btn.disabled = false;
+    btn.textContent = 'Generate';
 
-  const result = await sb('POST', 'gift_codes', codes);
+    if (res.error) { showToast('Error: ' + res.error); return; }
 
-  btn.disabled = false;
-  btn.textContent = 'Generate';
-
-  if (!result) { showToast('Error generating codes'); return; }
-
-  // Show new codes prominently
-  const el = document.getElementById('newCodes');
-  el.innerHTML = result.map(c => codeHTML(c, true)).join('');
-
-  showToast(`✓ ${count} code${count===1?'':'s'} generated`);
-  loadCodes();
+    const el = document.getElementById('newCodes');
+    el.innerHTML = (res.codes || []).map(c => codeHTML(c, true)).join('');
+    showToast(`✓ ${res.codes.length} code${res.codes.length === 1 ? '' : 's'} generated`);
+    loadCodes();
+  } catch {
+    btn.disabled = false;
+    btn.textContent = 'Generate';
+    showToast('Network error. Try again.');
+  }
 }
 
-function codeHTML(c, highlight=false) {
-  const used = !!c.redeemed_at;
-  const date = new Date(c.created_at).toLocaleDateString();
-  return `
-    <div class="code-item ${used ? 'code-used' : ''}" style="${highlight ? 'border-color:rgba(67,97,238,.3);background:rgba(67,97,238,.06)' : ''}">
-      <span class="code-val">${c.code}</span>
-      <span class="code-meta">${c.duration_days}d · ${date}${c.note ? ` · ${c.note}` : ''}</span>
-      <span class="tag ${used ? 'tag-used' : 'tag-free'}">${used ? 'Used' : 'Active'}</span>
-      ${!used ? `<button class="copy-btn" onclick="copyCode('${c.code}')">Copy</button>` : ''}
-    </div>`;
-}
-
-async function loadCodes() {
-  const data = await sb('GET', 'gift_codes?order=created_at.desc&select=*');
-  allCodesData = data || [];
-  renderCodes(allCodesData);
+// ── Load / filter codes ─────────────────────────────────────────
+let loadTimer = null;
+async function loadCodes(filter = '') {
+  clearTimeout(loadTimer);
+  loadTimer = setTimeout(async () => {
+    const res = await api('list', { filter });
+    if (res.error) { showToast('Error: ' + res.error); return; }
+    renderCodes(res.codes || []);
+  }, filter ? 300 : 0);
 }
 
 function renderCodes(codes) {
-  document.getElementById('allCodes').innerHTML =
-    codes.length ? codes.map(c => codeHTML(c)).join('') :
-    '<div style="font-size:13px;color:#404048;padding:12px 0">No codes yet.</div>';
+  const el = document.getElementById('allCodes');
+  el.innerHTML = codes.length
+    ? codes.map(c => codeHTML(c)).join('')
+    : '<div style="font-size:13px;color:#404048;padding:12px 0">No codes yet.</div>';
 }
 
-function filterCodes() {
-  const q = document.getElementById('filterInput').value.toLowerCase();
-  renderCodes(allCodesData.filter(c =>
-    c.code.toLowerCase().includes(q) ||
-    (c.note||'').toLowerCase().includes(q)
-  ));
+// ── Code HTML ───────────────────────────────────────────────────
+function codeHTML(c, highlight = false) {
+  const used = !!c.redeemed_at;
+  const date = new Date(c.created_at).toLocaleDateString();
+  return `
+    <div class="code-item ${used ? 'code-used' : ''}" style="${
+      highlight ? 'border-color:rgba(67,97,238,.3);background:rgba(67,97,238,.06)' : ''}">
+      <span class="code-val">${c.code}</span>
+      <span class="code-meta">${c.duration_days}d · ${date}${c.note ? ` · ${c.note}` : ''}</span>
+      <span class="tag ${used ? 'tag-used' : 'tag-free'}">${used ? 'Used' : 'Active'}</span>
+      ${!used ? `
+        <button class="copy-btn" onclick="copyCode('${c.code}')">Copy</button>
+        <button class="btn-red btn" style="padding:4px 10px;font-size:11px"
+          onclick="deleteCode('${c.code}')">Delete</button>` : ''}
+    </div>`;
 }
 
+// ── Actions ─────────────────────────────────────────────────────
 async function copyCode(code) {
   await navigator.clipboard.writeText(code);
   showToast(`Copied ${code}`);
 }
 
+async function deleteCode(code) {
+  if (!confirm(`Delete code ${code}? This cannot be undone.`)) return;
+  const res = await api('delete', { code });
+  if (res.error) { showToast('Error: ' + res.error); return; }
+  showToast(`Deleted ${code}`);
+  loadCodes();
+}
+
+// ── Toast ────────────────────────────────────────────────────────
 function showToast(msg) {
   const el = document.getElementById('toastG');
   el.textContent = msg;
   el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 2200);
+  setTimeout(() => el.classList.remove('show'), 2400);
 }
 </script>
 </body>
