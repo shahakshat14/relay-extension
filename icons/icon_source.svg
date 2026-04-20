@@ -1,0 +1,27 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="10%" y1="0%" x2="90%" y2="100%">
+      <stop offset="0%" stop-color="#8687F9"/>
+      <stop offset="100%" stop-color="#3D3ABB"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.14)"/>
+      <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="128" height="128" rx="26" fill="url(#bg)"/>
+  <rect x="0" y="0" width="128" height="56" rx="26" fill="url(#shine)"/>
+
+  <!-- TOP ARROW (right-pointing) — upper-left to upper-right -->
+  <!-- Shaft: pill shape -->
+  <rect x="18" y="35" width="62" height="13" rx="6.5" fill="white"/>
+  <!-- Arrowhead: filled triangle -->
+  <polygon points="74,24 97,41 74,58" fill="white"/>
+
+  <!-- BOTTOM ARROW (left-pointing) — lower-right to lower-left -->
+  <!-- Shaft: pill shape -->
+  <rect x="48" y="80" width="62" height="13" rx="6.5" fill="rgba(255,255,255,0.55)"/>
+  <!-- Arrowhead: filled triangle -->
+  <polygon points="54,69 31,86 54,103" fill="rgba(255,255,255,0.55)"/>
+</svg>
