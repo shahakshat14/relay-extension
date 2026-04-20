@@ -194,6 +194,24 @@ function age(iso){
 // ─────────────────────────────────────────────────────────────────────
 const PRICING_URL='https://tridentcx.github.io/relay-extension/pricing/';
 
+async function openUpgrade(){
+  try {
+    const vk = await myVaultKey();
+    const data = await _relay.createCheckout(vk);
+    if (data?.error === 'already_pro') {
+      await chrome.storage.local.set({plan:'pro'});
+      applyPlan('pro');
+      toast('toastMain','You are already on Pro.','ok');
+      return;
+    }
+    if (data?.url) {
+      chrome.tabs.create({url:data.url});
+      return;
+    }
+  } catch {}
+  chrome.tabs.create({url:PRICING_URL});
+}
+
 function applyPlan(plan){
   const isPro = plan==='pro';
 
@@ -466,7 +484,14 @@ async function checkUsername(username){
       `${clean}-${NOUNS[arr[2]%NOUNS.length]}`,
       `${ADJS[arr[3]%ADJS.length]}-${NOUNS[arr[0]%NOUNS.length]}`,
     ];
-    sugsEl.innerHTML=sugs.map(s=>`<button class="sug-btn" data-n="${s}">@${s}</button>`).join('');
+    sugsEl.textContent='';
+    sugs.forEach(s=>{
+      const btn=document.createElement('button');
+      btn.className='sug-btn';
+      btn.dataset.n=s;
+      btn.textContent=`@${s}`;
+      sugsEl.appendChild(btn);
+    });
     sugsEl.style.display='flex';
     sugsEl.querySelectorAll('.sug-btn').forEach(b=>{
       b.addEventListener('click',()=>{
@@ -541,12 +566,13 @@ q('btnSignIn').addEventListener('click',async()=>{
       throw new Error('Wrong password. Please try again.');
     }
 
-    // Credentials verified. Clear local storage (preserve browserId + accountSalt)
-    const {browserId}=await chrome.storage.local.get('browserId');
-    const {accountSalt:existingSalt}=await chrome.storage.local.get('accountSalt');
+    // Credentials verified. Clear local storage while preserving device-bound
+    // vault proof so returning browsers can keep syncing after RLS hardening.
+    const {browserId,accountSalt:existingSalt,writeToken}=await chrome.storage.local.get(['browserId','accountSalt','writeToken']);
     await chrome.storage.local.clear();
     if(browserId)     await chrome.storage.local.set({browserId});
     if(existingSalt)  await chrome.storage.local.set({accountSalt:existingSalt});
+    if(writeToken)    await chrome.storage.local.set({writeToken});
 
     await saveSession(username, password);
     await chrome.storage.local.set({hasAccount:true, username});
@@ -709,14 +735,14 @@ q('chkAuto').addEventListener('change',async e=>{
   await chrome.storage.local.set({autoSync:e.target.checked});
 });
 
-q('upgradeAlertBtn')?.addEventListener('click',()=>chrome.tabs.create({url:PRICING_URL}));
+q('upgradeAlertBtn')?.addEventListener('click',openUpgrade);
 
 // ─────────────────────────────────────────────────────────────────────
 // Settings events
 // ─────────────────────────────────────────────────────────────────────
 q('btnBackMain').addEventListener('click',()=>show('vMain'));
-q('btnUpgrade')?.addEventListener('click',()=>chrome.tabs.create({url:PRICING_URL}));
-q('upgTeaser')?.addEventListener('click',()=>chrome.tabs.create({url:PRICING_URL}));
+q('btnUpgrade')?.addEventListener('click',openUpgrade);
+q('upgTeaser')?.addEventListener('click',openUpgrade);
 
 q('btnShowGift')?.addEventListener('click',()=>{
   clrT('toastGift');q('giftInput').value='';show('vGift');
@@ -776,10 +802,15 @@ q('btnShowHistory')?.addEventListener('click',async()=>{
       q('historyList').appendChild(btn);
     });
     // (handlers attached during build above)
-  }catch(err){
-    q('historyList').innerHTML=`<div style="color:var(--red);padding:20px;text-align:center">${err.message}</div>`;
-  }
-});
+	  }catch(err){
+	    const el=q('historyList');
+	    el.textContent='';
+	    const msg=document.createElement('div');
+	    msg.style.cssText='color:var(--red);padding:20px;text-align:center';
+	    msg.textContent=err.message;
+	    el.appendChild(msg);
+	  }
+	});
 
 q('btnBackHistory')?.addEventListener('click',()=>show('vSecurity'));
 
@@ -826,10 +857,11 @@ q('btnLock').addEventListener('click',async()=>{
   // Preserve browserId (tied to physical browser) and accountSalt (tied to vault key)
   // so a returning user on this device can sign back in without losing their vault key.
   // Preserve device-bound keys; clear user-bound session data
-  const {browserId, accountSalt} = await chrome.storage.local.get(['browserId','accountSalt']);
+  const {browserId, accountSalt, writeToken} = await chrome.storage.local.get(['browserId','accountSalt','writeToken']);
   await chrome.storage.local.clear();
   if(browserId)   await chrome.storage.local.set({browserId});
   if(accountSalt) await chrome.storage.local.set({accountSalt});
+  if(writeToken)  await chrome.storage.local.set({writeToken});
   // Auth tokens are user-bound — clear them so next user gets a fresh identity
   // (clearAuthToken is in sync.js scope via the shared supabase module)
   try { await _relay.clearAuthToken(); } catch {}

@@ -100,7 +100,7 @@ h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
   <p>Enter your admin password to continue.</p>
   <input class="inp" id="gateInput" type="password" placeholder="Admin password…"
     style="width:100%;margin-bottom:10px;text-align:center">
-  <button class="btn btn-blue" style="width:100%" id="gateBtn" onclick="checkGate()">Enter</button>
+  <button class="btn btn-blue" style="width:100%" id="gateBtn">Enter</button>
   <div class="err-msg" id="gateErr"></div>
 </div>
 
@@ -118,7 +118,7 @@ h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
         placeholder="Days" style="max-width:100px">
       <input class="inp" id="codeNote" type="text"
         placeholder="Note (e.g. for John)" style="flex:2">
-      <button class="btn btn-blue" id="btnGenerate" onclick="generateCodes()">Generate</button>
+      <button class="btn btn-blue" id="btnGenerate">Generate</button>
     </div>
     <div id="newCodes" class="codes-list"></div>
   </div>
@@ -126,8 +126,7 @@ h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
   <div class="card">
     <h2>All Codes</h2>
     <div class="row" style="margin-bottom:0">
-      <input class="inp" id="filterInput" placeholder="Search codes or notes…"
-        oninput="loadCodes(this.value)">
+      <input class="inp" id="filterInput" placeholder="Search codes or notes…">
     </div>
     <div id="allCodes" class="codes-list"></div>
   </div>
@@ -177,6 +176,9 @@ async function checkGate() {
 document.getElementById('gateInput').addEventListener('keydown', async (e) => {
   if (e.key === 'Enter') await checkGate();
 });
+document.getElementById('gateBtn').addEventListener('click', checkGate);
+document.getElementById('btnGenerate').addEventListener('click', generateCodes);
+document.getElementById('filterInput').addEventListener('input', e => loadCodes(e.target.value));
 
 // ── API wrapper — all calls go through the Edge Function ────────
 async function api(action, extra = {}) {
@@ -209,8 +211,7 @@ async function generateCodes() {
 
     if (res.error) { showToast('Error: ' + res.error); return; }
 
-    const el = document.getElementById('newCodes');
-    el.innerHTML = (res.codes || []).map(c => codeHTML(c, true)).join('');
+    renderCodeList(document.getElementById('newCodes'), res.codes || [], true);
     showToast(`✓ ${res.codes.length} code${res.codes.length === 1 ? '' : 's'} generated`);
     loadCodes();
   } catch {
@@ -232,27 +233,56 @@ async function loadCodes(filter = '') {
 }
 
 function renderCodes(codes) {
-  const el = document.getElementById('allCodes');
-  el.innerHTML = codes.length
-    ? codes.map(c => codeHTML(c)).join('')
-    : '<div style="font-size:13px;color:#404048;padding:12px 0">No codes yet.</div>';
+  renderCodeList(document.getElementById('allCodes'), codes);
 }
 
-// ── Code HTML ───────────────────────────────────────────────────
-function codeHTML(c, highlight = false) {
+// ── Code rendering ───────────────────────────────────────────────
+function renderCodeList(el, codes, highlight = false) {
+  el.textContent = '';
+  if (!codes.length) {
+    const empty = document.createElement('div');
+    empty.style.cssText = 'font-size:13px;color:#404048;padding:12px 0';
+    empty.textContent = 'No codes yet.';
+    el.appendChild(empty);
+    return;
+  }
+  codes.forEach(c => el.appendChild(codeElement(c, highlight)));
+}
+
+function codeElement(c, highlight = false) {
   const used = !!c.redeemed_at;
-  const date = new Date(c.created_at).toLocaleDateString();
-  return `
-    <div class="code-item ${used ? 'code-used' : ''}" style="${
-      highlight ? 'border-color:rgba(67,97,238,.3);background:rgba(67,97,238,.06)' : ''}">
-      <span class="code-val">${c.code}</span>
-      <span class="code-meta">${c.duration_days}d · ${date}${c.note ? ` · ${c.note}` : ''}</span>
-      <span class="tag ${used ? 'tag-used' : 'tag-free'}">${used ? 'Used' : 'Active'}</span>
-      ${!used ? `
-        <button class="copy-btn" onclick="copyCode('${c.code}')">Copy</button>
-        <button class="btn-red btn" style="padding:4px 10px;font-size:11px"
-          onclick="deleteCode('${c.code}')">Delete</button>` : ''}
-    </div>`;
+  const date = new Date(c.created_at);
+  const item = document.createElement('div');
+  item.className = `code-item${used ? ' code-used' : ''}`;
+  if (highlight) item.style.cssText = 'border-color:rgba(67,97,238,.3);background:rgba(67,97,238,.06)';
+
+  const code = document.createElement('span');
+  code.className = 'code-val';
+  code.textContent = c.code || '';
+
+  const meta = document.createElement('span');
+  meta.className = 'code-meta';
+  meta.textContent = `${Number(c.duration_days) || 0}d · ${isNaN(date) ? '' : date.toLocaleDateString()}${c.note ? ` · ${c.note}` : ''}`;
+
+  const tag = document.createElement('span');
+  tag.className = `tag ${used ? 'tag-used' : 'tag-free'}`;
+  tag.textContent = used ? 'Used' : 'Active';
+
+  item.append(code, meta, tag);
+  if (!used) {
+    const copy = document.createElement('button');
+    copy.className = 'copy-btn';
+    copy.textContent = 'Copy';
+    copy.addEventListener('click', () => copyCode(c.code || ''));
+
+    const del = document.createElement('button');
+    del.className = 'btn-red btn';
+    del.style.cssText = 'padding:4px 10px;font-size:11px';
+    del.textContent = 'Delete';
+    del.addEventListener('click', () => deleteCode(c.code || ''));
+    item.append(copy, del);
+  }
+  return item;
 }
 
 // ── Actions ─────────────────────────────────────────────────────

@@ -127,6 +127,13 @@ supabase/migration-level2-auth.sql
 
 # 4. Rate limiter table
 supabase/migration-rate-limiter.sql
+
+# 5. Revoke public table reads/writes; add hardened RPC surface
+supabase/migrations/20260420_security_hardening.sql
+supabase/migrations/20260420010200_sync_rate_limit_rpc.sql
+supabase/migrations/20260420011800_claim_legacy_vault.sql
+supabase/migrations/20260420013500_harden_claim_and_browser_registration.sql
+supabase/migrations/20260420015000_revoke_remaining_public_grants.sql
 ```
 
 Deploy Edge Functions:

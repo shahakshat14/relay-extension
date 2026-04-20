@@ -88,26 +88,28 @@ async function audit() {
   }
 
   // ── 3. vaults — read a specific (fake) vault key ─────────────────────────
-  section('3 · vaults table – read by vault_key');
+  section('3 · vaults table – keyed REST read');
   const fakeKey = 'a'.repeat(64); // fake 64-char hex key
-  const vOne = await get(`vaults?vault_key=eq.${fakeKey}&select=vault_key,updated_at`);
-  if (vOne.ok && Array.isArray(vOne.json)) {
-    pass(`Keyed vault read works (returned ${vOne.json.length} rows for fake key — expected 0)`);
+  const vOne = await get(`vaults?vault_key=eq.${fakeKey}&select=vault_key,updated_at,write_token`);
+  if (vOne.status === 401 || vOne.status === 403) {
+    pass('Direct REST reads from vaults are blocked; use pull_vault RPC');
+  } else if (vOne.ok && Array.isArray(vOne.json)) {
+    fail(`Direct keyed REST read is allowed. Rows: ${vOne.json.length}; write_token exposed: ${Boolean(vOne.json[0]?.write_token)}`);
   } else {
-    warn(`Keyed vault read: HTTP ${vOne.status} — ${vOne.body.slice(0,200)}`);
+    info(`Keyed vault read: HTTP ${vOne.status} — ${vOne.body.slice(0,200)}`);
   }
 
   // ── 4. vaults — unauthenticated write (INSERT) ───────────────────────────
-  section('4 · vaults table – unauthenticated INSERT');
+  section('4 · vaults table – direct INSERT');
   const testKey = Array.from(crypto.getRandomValues(new Uint8Array(32))).map(b=>b.toString(16).padStart(2,'0')).join('');
   const vIns = await post('vaults', { vault_key: testKey, data: 'audit-test', updated_at: new Date().toISOString() });
   if (vIns.ok) {
-    warn(`INSERT succeeded with anon key (vault_key: ${testKey.slice(0,12)}…) — anyone can create vaults. Check if this is intended.`);
+    fail(`Direct INSERT succeeded with anon key (vault_key: ${testKey.slice(0,12)}…). Table grants are too broad.`);
     // Clean up
     await fetch(`${SUPABASE_URL}/rest/v1/vaults?vault_key=eq.${testKey}`, { method:'DELETE', headers: HDR });
     info('Test row cleaned up.');
   } else if (vIns.status === 401 || vIns.status === 403) {
-    pass('Anonymous INSERT into vaults is blocked');
+    pass('Direct anonymous INSERT into vaults is blocked; use push_vault RPC');
   } else {
     info(`vaults INSERT: HTTP ${vIns.status} — ${vIns.body.slice(0,200)}`);
   }
@@ -138,8 +140,50 @@ async function audit() {
     info(`vault_plan: HTTP ${vpAll.status} — ${vpAll.body.slice(0,200)}`);
   }
 
-  // ── 7. register_browser RPC ───────────────────────────────────────────────
-  section('7 · register_browser RPC – probe');
+  // ── 7. Internal tables ────────────────────────────────────────────────────
+  section('7 · Internal tables – full scan');
+  for (const table of ['vault_browsers', 'gift_codes', 'relay_config', 'sync_log', 'sync_rate_events']) {
+    const res = await get(`${table}?limit=1`);
+    if (res.status === 401 || res.status === 403) {
+      pass(`${table} full scan blocked`);
+    } else {
+      fail(`${table} full scan returned HTTP ${res.status}: ${res.body.slice(0,160)}`);
+    }
+  }
+
+  // ── 8. Hardened vault RPCs ────────────────────────────────────────────────
+  section('8 · Hardened vault RPCs');
+  const pv = await rpc('pull_vault', { p_vault_key: fakeKey });
+  if (pv.ok) pass(`pull_vault is callable and returned ${Array.isArray(pv.json) ? pv.json.length : 0} fake rows`);
+  else fail(`pull_vault failed: HTTP ${pv.status} — ${pv.body.slice(0,200)}`);
+
+  const badPush = await rpc('push_vault', {
+    p_vault_key: fakeKey,
+    p_data: 'audit-test',
+    p_write_token: 'bad-token',
+    p_last_seen_updated_at: null,
+  });
+  if (!badPush.ok) pass('push_vault rejects invalid write tokens');
+  else fail('push_vault accepted an invalid write token');
+
+  const badDelete = await rpc('delete_vault', { p_vault_key: fakeKey, p_write_token: 'bad-token' });
+  if (!badDelete.ok) pass('delete_vault rejects invalid write tokens');
+  else fail('delete_vault accepted an invalid write token');
+
+  const badClaim = await rpc('claim_legacy_vault', {
+    p_vault_key: fakeKey,
+    p_current_data: 'missing-current-data',
+    p_write_token: 'c'.repeat(64),
+  });
+  if (badClaim.ok && badClaim.json?.ok === false) pass('claim_legacy_vault refuses non-current data');
+  else fail(`claim_legacy_vault unexpected response: HTTP ${badClaim.status} — ${badClaim.body.slice(0,200)}`);
+
+  const rate = await rpc('check_sync_rate_limit', { p_vault_key: fakeKey });
+  if (rate.ok && rate.json?.allowed === true) pass('check_sync_rate_limit allows a normal sync attempt');
+  else fail(`check_sync_rate_limit failed: HTTP ${rate.status} — ${rate.body.slice(0,200)}`);
+
+  // ── 9. register_browser RPC ───────────────────────────────────────────────
+  section('9 · register_browser RPC – probe');
   const rb = await rpc('register_browser', {
     p_vault_key:  fakeKey,
     p_browser_id: crypto.randomUUID(),
@@ -153,8 +197,8 @@ async function audit() {
     info(`register_browser: HTTP ${rb.status} — ${rb.body.slice(0,200)}`);
   }
 
-  // ── 8. redeem_gift_code RPC ───────────────────────────────────────────────
-  section('8 · redeem_gift_code RPC – probe');
+  // ── 10. redeem_gift_code RPC ──────────────────────────────────────────────
+  section('10 · redeem_gift_code RPC – probe');
   const gc = await rpc('redeem_gift_code', { p_code: 'AAAA-AAAA-AAAA', p_vault_key: fakeKey });
   if (gc.ok) {
     if (gc.json?.success === false) pass(`RPC rejects bad code correctly: "${gc.json.error}"`);
@@ -163,23 +207,22 @@ async function audit() {
     info(`redeem_gift_code: HTTP ${gc.status} — ${gc.body.slice(0,200)}`);
   }
 
-  // ── 9. vault enumeration speed test ──────────────────────────────────────
-  section('9 · Vault enumeration – can attacker iterate known keys?');
+  // ── 11. vault enumeration speed test ─────────────────────────────────────
+  section('11 · Vault enumeration – direct REST endpoint');
   const t0 = Date.now();
   const probeKey = 'b'.repeat(64);
-  await get(`vaults?vault_key=eq.${probeKey}&select=vault_key`);
+  const enumProbe = await get(`vaults?vault_key=eq.${probeKey}&select=vault_key`);
   const ms = Date.now() - t0;
-  info(`Single vault key lookup: ${ms}ms`);
-  if (ms < 50) {
-    warn(`Fast lookup (${ms}ms) — no rate limiting visible on REST endpoint. An attacker can probe ~${Math.floor(1000/ms)} keys/sec.`);
+  if (enumProbe.status === 401 || enumProbe.status === 403) {
+    pass(`Direct REST enumeration blocked in ${ms}ms`);
   } else {
-    pass(`Lookup takes ${ms}ms — rate limiting or network latency makes enumeration slow`);
+    warn(`Direct REST lookup returned HTTP ${enumProbe.status} in ${ms}ms. Verify table SELECT grants are revoked.`);
   }
 
   // ── Summary ───────────────────────────────────────────────────────────────
   section('Audit complete');
   console.log('Review each ✗ FAIL and ⚠ WARN above.');
-  console.log('Recommended RLS SQL is in the SECURITY.md or ask Claude for the exact policies.');
+  console.log('Recommended RLS/RPC SQL lives in supabase/migrations/.');
 }
 
 audit().catch(console.error);

@@ -13,7 +13,3 @@ chrome.bookmarks.onCreated.addListener(markPending);
 chrome.bookmarks.onRemoved.addListener(markPending);
 chrome.bookmarks.onChanged.addListener(markPending);
 chrome.bookmarks.onMoved.addListener(markPending);
-
-chrome.runtime.onInstalled.addListener(({ reason }) => {
-  if (reason === 'install') console.log('Relay installed.');
-});

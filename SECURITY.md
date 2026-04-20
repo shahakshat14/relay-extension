@@ -82,7 +82,7 @@ At PBKDF2-600k on a modern GPU (~1,000–3,000 guesses/sec), exhausting this spa
 
 ## Write token
 
-Each vault has a `write_token` — a 32-byte random hex string generated at account creation and stored locally. The Supabase RLS policy requires this token to be present in UPDATE requests. This prevents pushing data to vaults you didn't create, even if you know the vault key.
+Each vault has a `write_token` — a 32-byte random hex string generated at account creation and stored locally. Current vault snapshots also include this token inside the encrypted payload, so a second browser can recover it only after decrypting with the account password. Supabase RPCs require the token before updating or deleting a vault.
 
 ---
 
@@ -114,15 +114,17 @@ Excluded:
 
 ## Database RLS policies
 
-| Table | anon INSERT | anon SELECT | anon UPDATE | anon DELETE |
+| Table / view | anon INSERT | anon SELECT | anon UPDATE | anon DELETE |
 |---|---|---|---|---|
-| `vaults` | ✅ vault_key+data required | ✅ open (encrypted blobs) | ✅ write_token required | ✅ vault_key required |
-| `sync_history` | ✅ vault_key+data required | ✅ vault_key filter required | ❌ | ❌ |
-| `vault_browsers` | ✅ vault_key+browser_id required | ✅ open | ✅ vault_key required | ❌ |
+| `vaults` | ❌ use `push_vault` RPC | ❌ use `pull_vault` RPC | ❌ use `push_vault` RPC | ❌ use `delete_vault` RPC |
+| `sync_history` | ❌ use `save_sync_snapshot` RPC | ❌ use history RPCs | ❌ | ❌ |
+| `vault_plan` | n/a | ❌ use `get_vault_plan` RPC | n/a | n/a |
+| `vault_browsers` | ❌ use `register_browser` RPC | ❌ | ❌ use `register_browser` RPC | ❌ |
 | `gift_codes` | ❌ service_role only | ❌ service_role only | ❌ | ❌ |
 | `sync_log` | ❌ service_role only | ❌ service_role only | ❌ | ❌ |
+| `relay_config` | ❌ | ❌ use GitHub-hosted `config.json` | ❌ | ❌ |
 
-All RPCs (`register_browser`, `redeem_gift_code`, `claim_vault`) are `SECURITY DEFINER` — they run as the database owner, not the calling role.
+Sensitive RPCs (`pull_vault`, `push_vault`, `delete_vault`, history helpers, `register_browser`, `redeem_gift_code`) are `SECURITY DEFINER` and expose only the fields required by the extension. `write_token` is never returned by an anonymous API response.
 
 ---
 

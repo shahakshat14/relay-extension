@@ -236,7 +236,7 @@
       <li class="dim"><span class="chk">—</span>Auto-sync</li>
       <li class="dim"><span class="chk">—</span>Sync history</li>
     </ul>
-    <button class="btn-plan ghost" onclick="document.querySelector('.checkout-section').classList.remove('visible')">
+    <button class="btn-plan ghost" id="btnCurrent">
       Current plan
     </button>
   </div>
@@ -259,7 +259,7 @@
       <li><span class="chk">✓</span>Priority support</li>
       <li><span class="chk">✓</span>End-to-end encrypted</li>
     </ul>
-    <button class="btn-plan primary" id="btnUpgrade" onclick="showCheckout()">
+    <button class="btn-plan primary" id="btnUpgrade">
       Upgrade to Pro →
     </button>
   </div>
@@ -268,17 +268,14 @@
 <!-- Checkout section -->
 <div class="checkout-section" id="checkoutSection">
   <div class="checkout-card">
-    <div class="checkout-title">Enter your Relay username</div>
-    <div class="checkout-sub">We'll link your Pro subscription to your vault. No email needed — just your username.</div>
+    <div class="checkout-title">Upgrade from Relay</div>
+    <div class="checkout-sub">Open the Relay extension and choose Upgrade so Pro links to your encrypted vault without sharing your username.</div>
     <div class="status-msg" id="statusMsg"></div>
-    <input class="inp" id="usernameInput" type="text" placeholder="Your Relay username…"
-      autocomplete="off" spellcheck="false" autocorrect="off" autocapitalize="off">
-    <button class="btn-plan primary" id="btnCheckout" onclick="startCheckout()">
-      Continue to Payment →
+    <button class="btn-plan primary" id="btnCheckout">
+      Got it
     </button>
     <div class="checkout-note">
-      Secure payment by Stripe. Cancel anytime.<br>
-      Your username is hashed before leaving your device.
+      Secure payment by Stripe. Cancel anytime.
     </div>
   </div>
 </div>
@@ -316,36 +313,14 @@
 <footer>
   © 2026 Relay ·
   <a href="/relay-extension/privacy">Privacy Policy</a> ·
-  <a href="https://github.com/tridentCX/relay-extension">Open Source</a>
+  <a href="https://github.com/tridentcx/relay-extension">Open Source</a>
 </footer>
 
 <script>
-// ── Config — replace with your actual values ──────────────────────────
-const SUPABASE_URL      = 'https://mgeiplftbehngfsqtbiq.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_3BVQxcUH_AljAaamBNrhBA_7knbqxFI';
-const SITE_URL          = 'https://tridentCX.github.io/relay-extension';
-
-// ── Vault key derivation (mirrors crypto.js in the extension) ─────────
-const ENC = new TextEncoder();
-
-async function deriveVaultKey(username) {
-  const base = await crypto.subtle.importKey(
-    'raw', ENC.encode(username.toLowerCase().trim()), 'PBKDF2', false, ['deriveKey']
-  );
-  const key = await crypto.subtle.deriveKey(
-    { name:'PBKDF2', salt: ENC.encode('relay-vault-pepper-v1'), iterations: 200_000, hash:'SHA-256' },
-    base,
-    { name:'AES-GCM', length:256 },
-    true, ['encrypt']
-  );
-  const raw = await crypto.subtle.exportKey('raw', key);
-  return Array.from(new Uint8Array(raw)).map(b => b.toString(16).padStart(2,'0')).join('');
-}
-
 function showCheckout() {
   document.getElementById('checkoutSection').classList.add('visible');
   document.getElementById('checkoutSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  setTimeout(() => document.getElementById('usernameInput').focus(), 400);
+  setTimeout(() => document.getElementById('btnCheckout').focus(), 400);
 }
 
 function setStatus(msg, type) {
@@ -354,65 +329,19 @@ function setStatus(msg, type) {
   el.className = `status-msg ${type}`;
 }
 
-async function startCheckout() {
-  const username = document.getElementById('usernameInput').value.trim().toLowerCase();
-  if (!username || username.length < 3) {
-    setStatus('Please enter your Relay username.', 'err');
-    return;
-  }
-
-  const btn = document.getElementById('btnCheckout');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="sp"></span> Preparing checkout…';
-  setStatus('', '');
-
-  try {
-    // Derive vault key client-side — username never leaves the browser
-    const vault_key = await deriveVaultKey(username);
-
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/create-checkout`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-      },
-      body: JSON.stringify({
-        vault_key,
-        success_url: `${SITE_URL}/pricing/success.html`,
-        cancel_url:  `${SITE_URL}/pricing/`,
-      }),
-    });
-
-    const data = await res.json();
-
-    if (data.error === 'already_pro') {
-      setStatus('✓ You\'re already on Pro! Open Relay to sync.', 'ok');
-      btn.disabled = false;
-      btn.innerHTML = 'Continue to Payment →';
-      return;
-    }
-
-    if (data.error || !data.url) {
-      setStatus(data.error || 'Something went wrong. Please try again.', 'err');
-      btn.disabled = false;
-      btn.innerHTML = 'Continue to Payment →';
-      return;
-    }
-
-    // Redirect to Stripe Checkout
-    window.location.href = data.url;
-
-  } catch (err) {
-    setStatus('Network error. Check your connection and try again.', 'err');
-    btn.disabled = false;
-    btn.innerHTML = 'Continue to Payment →';
-  }
+function startCheckout() {
+  setStatus('Open Relay, then tap Upgrade on the main screen or Security screen.', 'ok');
 }
 
 // Handle Enter key
-document.getElementById('usernameInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter') startCheckout();
+document.getElementById('btnCheckout').addEventListener('keydown', e => {
+  if (e.key === 'Enter' || e.key === ' ') startCheckout();
 });
+document.getElementById('btnCurrent').addEventListener('click', () => {
+  document.getElementById('checkoutSection').classList.remove('visible');
+});
+document.getElementById('btnUpgrade').addEventListener('click', showCheckout);
+document.getElementById('btnCheckout').addEventListener('click', startCheckout);
 
 // Check for success redirect
 if (window.location.pathname.includes('success')) {

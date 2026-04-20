@@ -52,23 +52,22 @@ function friendlyError(raw) {
   return 'Sync failed. Please try again.';
 }
 
-// ── Supabase REST client ─────────────────────────────────────────
+// ── Supabase RPC client ──────────────────────────────────────────
 // Uses the public anon key. Security is provided by:
-//   1. RLS policies enforcing vault_key format validation
+//   1. Narrow SECURITY DEFINER RPCs instead of public table grants
 //   2. Two-secret vault key model (username + device salt)
 //   3. AES-256-GCM encryption — server never sees plaintext
 // Level 2 (Supabase anonymous auth) will be added when the
 // project's GoTrue version supports grant_type=anonymous.
-async function supabase(method, path, body) {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
-    method,
+async function rpc(name, body) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, {
+    method: 'POST',
     headers: {
       'apikey':        SUPABASE_KEY,
       'Authorization': `Bearer ${SUPABASE_KEY}`,
       'Content-Type':  'application/json',
-      'Prefer':        'return=representation,resolution=merge-duplicates',
     },
-    body: body ? JSON.stringify(body) : undefined,
+    body: JSON.stringify(body || {}),
   });
   if (!res.ok) {
     const err = await res.text().catch(() => `HTTP ${res.status}`);
@@ -85,69 +84,71 @@ async function clearAuthToken() {
   } catch {}
 }
 
+function makeWriteToken() {
+  const tokenBytes = crypto.getRandomValues(new Uint8Array(32));
+  return Array.from(tokenBytes).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+function isValidWriteToken(token) {
+  return typeof token === 'string' && /^[a-f0-9]{64}$/.test(token);
+}
+
+async function getWriteToken() {
+  const { writeToken } = await chrome.storage.local.get('writeToken');
+  if (isValidWriteToken(writeToken)) return writeToken;
+  return null;
+}
+
+async function ensureWriteToken() {
+  const existing = await getWriteToken();
+  if (existing) return existing;
+  const writeToken = makeWriteToken();
+  await chrome.storage.local.set({ writeToken });
+  return writeToken;
+}
+
+async function setWriteTokenFromVault(data) {
+  if (isValidWriteToken(data?.writeToken)) {
+    const existing = await getWriteToken();
+    if (!existing) await chrome.storage.local.set({ writeToken: data.writeToken });
+    return data.writeToken;
+  }
+  return null;
+}
+
 // FIX [C2]: Check patchRes.ok before parsing ──────────────────────────
 // FIX [MED-3]: Push with optimistic concurrency check.
 // If lastSeenUpdatedAt is provided, only patch when DB still has that timestamp.
 async function pushToCloud(vaultId, encryptedBlob, lastSeenUpdatedAt) {
   if (!window._relayCrypto.isValidVaultKey(vaultId)) throw new Error('Invalid vault key.');
-  // Include write_token for server-side ownership verification
-  const { writeToken } = await chrome.storage.local.get('writeToken');
-  const body = {
-    data:       encryptedBlob,
-    updated_at: new Date().toISOString(),
-    ...(writeToken ? { write_token: writeToken } : {}),
-  };
-
-  // Build URL with optional concurrency check
-  let url = `${SUPABASE_URL}/rest/v1/vaults?vault_key=eq.${vaultId}`;
-  if (lastSeenUpdatedAt) {
-    url += `&updated_at=eq.${encodeURIComponent(lastSeenUpdatedAt)}`;
-  }
-
-  const patchRes = await fetch(url, {
-    method: 'PATCH',
-    headers: {
-      'apikey':        SUPABASE_KEY,
-      'Authorization': `Bearer ${SUPABASE_KEY}`,
-      'Content-Type':  'application/json',
-      'Prefer':        'return=representation',
-    },
-    body: JSON.stringify(body),
+  const writeToken = await ensureWriteToken();
+  const result = await rpc('push_vault', {
+    p_vault_key: vaultId,
+    p_data: encryptedBlob,
+    p_write_token: writeToken,
+    p_last_seen_updated_at: lastSeenUpdatedAt || null,
   });
+  if (result?.conflict) throw new Error('Another browser synced first. Please sync again.');
+  if (!result?.ok) throw new Error('Sync failed. Please try again.');
+}
 
-  if (!patchRes.ok) {
-    const err = await patchRes.text().catch(() => `HTTP ${patchRes.status}`);
-    throw new Error(friendlyError(err));
-  }
-
-  const patchText = await patchRes.text();
-  const patched   = patchText ? JSON.parse(patchText) : [];
-
-  // No row matched — either it's new OR another browser updated it (conflict)
-  if (!patched || patched.length === 0) {
-    if (lastSeenUpdatedAt) {
-      // Concurrency check failed — another browser pushed first
-      throw new Error('Another browser synced first. Please sync again.');
-    }
-    // Genuinely new vault — generate and store a write_token
-    const tokenBytes = crypto.getRandomValues(new Uint8Array(32));
-    const writeToken = Array.from(tokenBytes).map(b=>b.toString(16).padStart(2,'0')).join('');
-    await chrome.storage.local.set({ writeToken });
-    await supabase('POST', 'vaults', { vault_key: vaultId, write_token: writeToken, ...body });
-  }
+async function claimLegacyVault(vaultId, currentEncryptedBlob) {
+  if (!window._relayCrypto.isValidVaultKey(vaultId)) throw new Error('Invalid vault key.');
+  if (!currentEncryptedBlob) throw new Error('Cannot migrate this vault. Sign in from a browser that synced before.');
+  const writeToken = await ensureWriteToken();
+  const result = await rpc('claim_legacy_vault', {
+    p_vault_key: vaultId,
+    p_current_data: currentEncryptedBlob,
+    p_write_token: writeToken,
+  });
+  if (!result?.ok) throw new Error('This vault needs one sync from a trusted browser before this browser can sync.');
+  return writeToken;
 }
 
 async function pullFromCloud(vaultId) {
   if (!window._relayCrypto.isValidVaultKey(vaultId)) throw new Error('Invalid vault key.');
-  const rows = await supabase('GET', `vaults?vault_key=eq.${vaultId}&select=data,updated_at,write_token`);
+  const rows = await rpc('pull_vault', { p_vault_key: vaultId });
   if (!rows || rows.length === 0) return null;
-  // Cache write_token locally if we don't have it yet
-  if (rows[0].write_token) {
-    const { writeToken } = await chrome.storage.local.get('writeToken');
-    if (!writeToken) {
-      await chrome.storage.local.set({ writeToken: rows[0].write_token });
-    }
-  }
   return rows[0];
 }
 
@@ -198,13 +199,16 @@ const clean = n => {
 async function getLocalSnapshot() {
   const tree = await chrome.bookmarks.getTree();
   const bm   = (tree[0].children||[]).map(clean);
-  return {
+  const writeToken = await getWriteToken();
+  const snapshot = {
     version:    '2.0',
     app:        'Relay',
     exportedAt: new Date().toISOString(),
     count:      countAll(bm),
     bookmarks:  bm,
   };
+  if (writeToken) snapshot.writeToken = writeToken;
+  return snapshot;
 }
 
 const countAll = ns => ns.reduce((s,n) => s + (n.type==='bookmark' ? 1 : countAll(n.children||[])), 0);
@@ -285,8 +289,7 @@ async function applyRemote(data) {
 // ── Availability check ────────────────────────────────────────────────
 async function checkUsernameAvailable(username) {
   const key  = await window._relayCrypto.vaultKey(username);
-  const rows = await supabase('GET', `vaults?vault_key=eq.${key}&select=vault_key`);
-  return !rows || rows.length === 0;
+  return !(await rpc('vault_exists', { p_vault_key: key }));
 }
 
 // ── Plan checking ─────────────────────────────────────────────────────
@@ -295,8 +298,7 @@ async function checkUsernameAvailable(username) {
 async function getPlan(vaultId) {
   if (!window._relayCrypto.isValidVaultKey(vaultId)) return { effective_plan: 'free', bookmark_count: 0 };
   try {
-    const rows = await supabase('GET', `vault_plan?vault_key=eq.${vaultId}&select=effective_plan,bookmark_count`);
-    return rows?.[0] ?? { effective_plan: 'free', bookmark_count: 0 };
+    return await rpc('get_vault_plan', { p_vault_key: vaultId }) ?? { effective_plan: 'free', bookmark_count: 0 };
   } catch {
     return { effective_plan: 'free', bookmark_count: 0 };
   }
@@ -339,15 +341,16 @@ async function registerBrowser(vaultId) {
   }
 }
 
+async function checkRateLimit(vaultId) {
+  const data = await rpc('check_sync_rate_limit', { p_vault_key: vaultId });
+  if (data?.allowed === false) throw new Error(`RATE_LIMIT:${data.window || data.reason || 'minute'}`);
+}
+
 // ─── Save a snapshot to sync_history (Pro only) ─────────────────────
 async function saveSnapshot(vaultId, encryptedBlob, count) {
   if (!window._relayCrypto.isValidVaultKey(vaultId)) return;
   try {
-    await supabase('POST', 'sync_history', {
-      vault_key: vaultId,
-      data: encryptedBlob,
-      bookmark_count: count,
-    });
+    await rpc('save_sync_snapshot', { p_vault_key: vaultId, p_data: encryptedBlob, p_bookmark_count: count });
   } catch {} // history is best-effort, never block sync
 }
 
@@ -356,9 +359,7 @@ async function listHistory(vaultId) {
   if (!window._relayCrypto.isValidVaultKey(vaultId)) return [];
   try {
     const cutoff = new Date(Date.now() - 30 * 86400_000).toISOString();
-    return await supabase('GET',
-      `sync_history?vault_key=eq.${vaultId}&created_at=gte.${cutoff}&order=created_at.desc&select=id,bookmark_count,created_at,data&limit=50`
-    ) || [];
+    return await rpc('list_sync_history', { p_vault_key: vaultId, p_cutoff: cutoff }) || [];
   } catch {
     return [];
   }
@@ -368,23 +369,23 @@ async function listHistory(vaultId) {
 async function doSync(username, password, accountSalt) {
   const vaultId = await window._relayCrypto.vaultKey(username, accountSalt);
 
-  // Rate limiter is deployed separately via Edge Function.
-  // Removed from sync path until function is confirmed deployed.
+  await checkRateLimit(vaultId);
 
   // Check plan first — needed for browser limit decision
   const planInfo = await getPlan(vaultId);
   const isPro    = planInfo.effective_plan === 'pro';
 
-  // Register this browser. Free tier capped at 2.
-  const reg = await registerBrowser(vaultId);
-  if (!reg.allowed && reg.reason === 'free_browser_limit') {
-    throw new Error(`BROWSER_LIMIT:${reg.count}`);
-  }
-
   const remote = await pullFromCloud(vaultId);
   let pulled = 0;
 
   if (remote?.data) {
+    // Register known vaults before applying remote bookmarks, so free-tier
+    // browser limits fail without modifying local bookmarks.
+    const reg = await registerBrowser(vaultId);
+    if (!reg.allowed && reg.reason === 'free_browser_limit') {
+      throw new Error(`BROWSER_LIMIT:${reg.count}`);
+    }
+
     let plaintext = null;
     try {
       plaintext = await window._relayCrypto.decrypt(remote.data, password);
@@ -399,10 +400,15 @@ async function doSync(username, password, accountSalt) {
     } catch {
       throw new Error('Vault data is corrupted. Contact support.');
     }
+    await setWriteTokenFromVault(data);
+    if (!await getWriteToken()) {
+      await claimLegacyVault(vaultId, remote.data);
+    }
     // applyRemote may throw structured errors — let them propagate
     pulled = await applyRemote(data);
   }
 
+  await ensureWriteToken();
   const snapshot = await getLocalSnapshot();
 
   // Free tier limit — check remote config, fall back to 500
@@ -416,6 +422,13 @@ async function doSync(username, password, accountSalt) {
 
   const blob = await window._relayCrypto.encrypt(JSON.stringify(snapshot), password);
   await pushToCloud(vaultId, blob, remote?.updated_at);
+
+  if (!remote?.data) {
+    const reg = await registerBrowser(vaultId);
+    if (!reg.allowed && reg.reason === 'free_browser_limit') {
+      throw new Error(`BROWSER_LIMIT:${reg.count}`);
+    }
+  }
 
   // Save to history (Pro only) — non-blocking
   if (isPro) {
@@ -433,14 +446,13 @@ async function restoreFromSnapshot(snapshotId, password, vaultId) {
   // Sanitize snapshot ID: should be UUID
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(snapshotId))) throw new Error('Invalid snapshot ID.');
 
-  const rows = await supabase('GET',
-    `sync_history?id=eq.${snapshotId}&select=data&limit=1`);
-  if (!rows || rows.length === 0) throw new Error('Snapshot not found.');
+  const snapshotBlob = await rpc('get_sync_snapshot', { p_vault_key: vaultId, p_snapshot_id: snapshotId });
+  if (!snapshotBlob) throw new Error('Snapshot not found.');
 
   // Step 1: Decrypt — fail fast if password wrong (nothing modified yet)
   let plaintext;
   try {
-    plaintext = await window._relayCrypto.decrypt(rows[0].data, password);
+    plaintext = await window._relayCrypto.decrypt(snapshotBlob, password);
   } catch {
     throw new Error('Cannot decrypt snapshot. Password may have changed since this was saved.');
   }
@@ -486,23 +498,33 @@ async function redeemGiftCode(code, vaultKey) {
   return await res.json().catch(() => null);
 }
 
-// ── Delete vault ──────────────────────────────────────────────────────
-async function deleteVault(vaultKey, hadRemoteData) {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/vaults?vault_key=eq.${vaultKey}`, {
-    method: 'DELETE',
+async function createCheckout(vaultKey) {
+  if (!window._relayCrypto.isValidVaultKey(vaultKey)) throw new Error('Invalid vault key.');
+  const siteUrl = 'https://tridentcx.github.io/relay-extension';
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/create-checkout`, {
+    method: 'POST',
     headers: {
       'apikey':        SUPABASE_KEY,
       'Authorization': `Bearer ${SUPABASE_KEY}`,
-      'Prefer':        'return=representation',
+      'Content-Type':  'application/json',
     },
+    body: JSON.stringify({
+      vault_key: vaultKey,
+      success_url: `${siteUrl}/pricing/success.html`,
+      cancel_url:  `${siteUrl}/pricing/`,
+    }),
   });
-  if (!res.ok) {
-    if (res.status === 401 || res.status === 403)
-      throw new Error('Server refused delete. Contact support.');
-    throw new Error('Delete failed: ' + res.status);
-  }
-  const deleted = await res.json().catch(() => []);
-  if (Array.isArray(deleted) && deleted.length === 0 && hadRemoteData) {
+  const data = await res.json().catch(() => null);
+  if (!res.ok || !data) throw new Error('Checkout unavailable. Try again later.');
+  return data;
+}
+
+// ── Delete vault ──────────────────────────────────────────────────────
+async function deleteVault(vaultKey, hadRemoteData) {
+  const writeToken = await getWriteToken();
+  if (!writeToken) throw new Error('This browser cannot prove vault ownership. Sync once from a trusted browser, then try again.');
+  const result = await rpc('delete_vault', { p_vault_key: vaultKey, p_write_token: writeToken });
+  if (hadRemoteData && !result?.deleted) {
     throw new Error("Server didn't delete the vault. Contact support.");
   }
 }
@@ -515,9 +537,10 @@ window._relay = {
   getPlan,
   listHistory,
   restoreFromSnapshot,
-  clearAuthToken,
-  redeemGiftCode,
-  deleteVault,
-};
+	  clearAuthToken,
+	  redeemGiftCode,
+	  createCheckout,
+	  deleteVault,
+	};
 
 })();
