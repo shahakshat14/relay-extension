@@ -123,6 +123,34 @@ async function clearSession(){
 }
 const getU=()=>_u, getP=()=>_p;
 
+// Load heavier sync/encryption modules after the popup has painted. Chrome
+// extension popups feel much faster when first paint is not blocked by all
+// backend/encryption code.
+let relayModulesReady=null;
+function loadScript(src){
+  return new Promise((resolve,reject)=>{
+    if(document.querySelector(`script[data-relay-module="${src}"]`)){resolve();return;}
+    const script=document.createElement('script');
+    script.src=src;
+    script.dataset.relayModule=src;
+    script.onload=()=>resolve();
+    script.onerror=()=>reject(new Error(`Could not load ${src}`));
+    document.head.appendChild(script);
+  });
+}
+async function ensureRelayModules(){
+  if(window._relay&&window._relayCrypto)return;
+  if(!relayModulesReady){
+    relayModulesReady=loadScript('config.js')
+      .then(()=>loadScript('crypto.js'))
+      .then(()=>loadScript('sync.js'));
+  }
+  await relayModulesReady;
+}
+function warmRelayModules(){
+  setTimeout(()=>ensureRelayModules().catch(()=>{}),150);
+}
+
 // ─────────────────────────────────────────────────────────────────────
 // Account salt — legacy salted vault-key support. New accounts do not create
 // this value, but older local installs may still need it to open their vault.
@@ -143,6 +171,7 @@ async function clearAccountSecrets() {
 
 // Helper: get vault key using stored salt (or legacy if no salt)
 async function myVaultKey() {
+  await ensureRelayModules();
   const salt = await getAccountSalt();
   return _relayCrypto.vaultKey(getU(), salt || undefined);
 }
@@ -300,6 +329,7 @@ async function checkForUpdates({silent=false, useCache=true}={}){
 
 async function openUpgrade(){
   try {
+    await ensureRelayModules();
     const vk = await myVaultKey();
     const data = await _relay.createCheckout(vk);
     if (data?.error === 'already_pro') {
@@ -363,6 +393,7 @@ function applyPlan(plan){
 // Sync
 // ─────────────────────────────────────────────────────────────────────
 async function runSync(username, password){
+  await ensureRelayModules();
   // Legacy salted vaults still need the stored account salt.
   const accountSalt = await getAccountSalt();
   const btn=q('btnSync');
@@ -544,6 +575,7 @@ async function goMain(initialSync=false){
 let uTimer=null,uGen=0,uValid=false;
 
 async function checkUsername(username){
+  await ensureRelayModules();
   const myGen=++uGen;
   const sEl=q('unameStatus'),mEl=q('unameMsg'),iEl=q('unameIcon'),inp=q('unameInput');
   // iEl will be null (unameIcon removed in v4.6) — setIcon() guards all uses
@@ -640,6 +672,7 @@ q('btnSignIn').addEventListener('click',async()=>{
   clrT('toastSignIn');
 
   try{
+    await ensureRelayModules();
     // FIX: Verify vault exists + password decrypts correctly BEFORE
     // advancing to main view. This was previously letting anything through.
     // Sign-in tries a local legacy salted key first, then the portable key
@@ -791,6 +824,7 @@ q('btnCreate').addEventListener('click',async()=>{
   q('btnCreate').innerHTML='<span class="sp"></span> Creating…';
 
   try{
+    await ensureRelayModules();
     const avail=await _relay.checkUsernameAvailable(username);
     if(!avail){
       toast('toastSetup','That username was just taken. Try another.','err');
@@ -1120,20 +1154,24 @@ async function init(){
   const {hasAccount}=await chrome.storage.local.get('hasAccount');
   if(!hasAccount){
     show('vSignIn');
+    warmRelayModules();
     setTimeout(()=>checkForUpdates({silent:true}).catch(()=>{}),800);
     return;
   }
   const u=getU(),p=getP();
   if(!u||!p){
     show('vSignIn');
+    warmRelayModules();
     setTimeout(()=>checkForUpdates({silent:true}).catch(()=>{}),800);
     return;
   }
   await goMain();
+  warmRelayModules();
   setTimeout(()=>checkForUpdates({silent:true}).catch(()=>{}),800);
 }
 
 init().catch(()=>{
   show('vSignIn');
+  warmRelayModules();
   setTimeout(()=>checkForUpdates({silent:true}).catch(()=>{}),800);
 });

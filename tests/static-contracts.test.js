@@ -94,6 +94,12 @@ test('popup exposes a safe GitHub release update checker', () => {
   const popup = read('popup.js');
   const html = read('popup.html');
   assert.match(html, /id="vSignIn" class="view active"/);
+  assert.doesNotMatch(html, /<script src="config\.js"/);
+  assert.doesNotMatch(html, /<script src="crypto\.js"/);
+  assert.doesNotMatch(html, /<script src="sync\.js"/);
+  assert.match(html, /<script src="popup\.js" defer><\/script>/);
+  assert.match(popup, /function ensureRelayModules\(\)/);
+  assert.match(popup, /function warmRelayModules\(\)/);
   assert.match(popup, /RELEASE_API_URL='https:\/\/api\.github\.com\/repos\/trident-cx\/relay-extension\/releases\/latest'/);
   assert.match(popup, /relay-extension-stable-v\$\{version\}\.zip/);
   assert.doesNotMatch(popup, /relay-extension-latest\.zip/);

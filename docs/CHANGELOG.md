@@ -4,6 +4,11 @@ This public changelog tracks user-facing release changes. Internal deployment, b
 
 ## Unreleased
 
+## v1.0.3 — 2026-04-29
+- Improved popup click-to-visible speed by loading sync and encryption modules after first paint
+- Kept the sign-in screen static and immediate while prewarming sync code in the background
+- Reduced parser-blocking popup scripts to make downloaded release zips feel snappier
+
 ## v1.0.2 — 2026-04-29
 - Improved popup startup reliability for freshly loaded release zips
 - Made the sign-in screen render immediately from static HTML before async extension startup finishes
