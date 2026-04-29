@@ -1115,14 +1115,25 @@ async function init(){
     if(lbl) lbl.textContent=`Relay v${v}`;
   }catch{}
   renderUpdateStatus();
-  checkForUpdates({silent:true}).catch(()=>{});
 
   await loadSession();
   const {hasAccount}=await chrome.storage.local.get('hasAccount');
-  if(!hasAccount){show('vSignIn');return;}
+  if(!hasAccount){
+    show('vSignIn');
+    setTimeout(()=>checkForUpdates({silent:true}).catch(()=>{}),800);
+    return;
+  }
   const u=getU(),p=getP();
-  if(!u||!p){show('vSignIn');return;}
+  if(!u||!p){
+    show('vSignIn');
+    setTimeout(()=>checkForUpdates({silent:true}).catch(()=>{}),800);
+    return;
+  }
   await goMain();
+  setTimeout(()=>checkForUpdates({silent:true}).catch(()=>{}),800);
 }
 
-init();
+init().catch(()=>{
+  show('vSignIn');
+  setTimeout(()=>checkForUpdates({silent:true}).catch(()=>{}),800);
+});

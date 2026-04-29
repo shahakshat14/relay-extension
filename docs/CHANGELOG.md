@@ -4,6 +4,11 @@ This public changelog tracks user-facing release changes. Internal deployment, b
 
 ## Unreleased
 
+## v1.0.2 — 2026-04-29
+- Improved popup startup reliability for freshly loaded release zips
+- Made the sign-in screen render immediately from static HTML before async extension startup finishes
+- Delayed the silent update check until after the first view is visible
+
 ## v1.0.1 — 2026-04-29
 - Tightened the extension network allowlist to the production Relay domain, Supabase, and GitHub Releases API
 - Added release checksums for downloadable zip verification

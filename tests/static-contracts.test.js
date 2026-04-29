@@ -93,10 +93,12 @@ test('public docs expose direct download and install instructions', () => {
 test('popup exposes a safe GitHub release update checker', () => {
   const popup = read('popup.js');
   const html = read('popup.html');
+  assert.match(html, /id="vSignIn" class="view active"/);
   assert.match(popup, /RELEASE_API_URL='https:\/\/api\.github\.com\/repos\/trident-cx\/relay-extension\/releases\/latest'/);
   assert.match(popup, /relay-extension-stable-v\$\{version\}\.zip/);
   assert.doesNotMatch(popup, /relay-extension-latest\.zip/);
   assert.match(popup, /function compareVersions/);
+  assert.match(popup, /setTimeout\(\(\)=>checkForUpdates\(\{silent:true\}\)/);
   assert.match(popup, /chrome\.tabs\.create\(\{url:updateDownloadUrl\}\)/);
   assert.match(html, /id="btnCheckUpdate"/);
   assert.match(html, /id="btnDownloadUpdate"/);
