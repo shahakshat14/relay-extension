@@ -188,7 +188,11 @@ function show(id){
   if(next.classList.contains('active') && activeViews.length===1)return;
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active','view-enter'));
   next.classList.add('active');
-  requestAnimationFrame(()=>next.classList.add('view-enter'));
+  requestAnimationFrame(()=>{
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    next.classList.add('view-enter');
+  });
 }
 
 function eye(inpId, btnId){

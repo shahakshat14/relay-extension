@@ -123,6 +123,17 @@ test('popup exposes a safe GitHub release update checker', () => {
   assert.match(html, /id="btnDownloadUpdate"/);
 });
 
+test('popup keeps fixed startup size while allowing tall views to scroll', () => {
+  const html = read('popup.html');
+  const popup = read('popup.js');
+  assert.match(html, /html,\s*body\s*\{[\s\S]*width:\s*360px[\s\S]*height:\s*600px/);
+  assert.match(html, /html\s*\{\s*overflow:\s*hidden;\s*\}/);
+  assert.match(html, /body\s*\{[\s\S]*overflow-y:\s*auto/);
+  assert.doesNotMatch(html, /(^|\n)body\s*\{[^}]*overflow:\s*hidden/m);
+  assert.match(popup, /document\.body\.scrollTop\s*=\s*0/);
+  assert.match(popup, /document\.documentElement\.scrollTop\s*=\s*0/);
+});
+
 test('repository has GitHub navigation and intake templates', () => {
   assert.match(read('.github/ISSUE_TEMPLATE/bug_report.yml'), /do not include passwords/i);
   assert.match(read('.github/ISSUE_TEMPLATE/config.yml'), /Versioned downloads/);

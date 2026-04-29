@@ -4,6 +4,10 @@ This public changelog tracks user-facing release changes. Internal deployment, b
 
 ## Unreleased
 
+## v1.0.9 — 2026-04-29
+- Restored vertical scrolling inside fixed-size popup views such as Settings and All Features
+- Kept the Edge pre-size flash fix while resetting scroll position cleanly between views
+
 ## v1.0.8 — 2026-04-29
 - Declared popup dimensions in the first bytes of the document to prevent Edge's tiny pre-size flash
 - Removed the first-open view animation and kept smoother transitions for later in-popup navigation

@@ -10,8 +10,13 @@ html, body {
   height: 600px;
   min-height: 600px;
   margin: 0;
-  overflow: hidden;
   background: #F7F4EE;
+}
+html { overflow: hidden; }
+body {
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 @media (prefers-color-scheme: dark) {
   html, body { background: #151411; }
@@ -107,7 +112,9 @@ body {
   background: var(--bg);
   color: var(--t-1);
   font-family: "Avenir Next", "SF Pro Text", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-  overflow: hidden; position: relative; letter-spacing: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  position: relative; letter-spacing: 0;
 }
 @media (prefers-color-scheme: dark) {
   body::before {
