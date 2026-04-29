@@ -4,6 +4,10 @@ This public changelog tracks user-facing release changes. Internal deployment, b
 
 ## Unreleased
 
+## v1.0.7 — 2026-04-29
+- Improved popup first paint by loading the full UI controller after the browser paints the interface
+- Kept the direct Edge-safe popup path while reducing startup work before the popup becomes visible
+
 ## v1.0.6 — 2026-04-29
 - Fixed slow Microsoft Edge startup for downloaded release zips by removing the popup redirect handoff
 - Simplified the release package back to one popup document so Edge opens the action popup directly
