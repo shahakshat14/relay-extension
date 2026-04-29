@@ -4,6 +4,11 @@ This public changelog tracks user-facing release changes. Internal deployment, b
 
 ## Unreleased
 
+## v1.0.4 — 2026-04-29
+- Reworked the popup into a tiny instant shell plus a local app payload
+- Reduced the action popup's initial document from the full interface to a lightweight first-paint screen
+- Loaded the full Relay UI only after the browser has displayed the popup shell
+
 ## v1.0.3 — 2026-04-29
 - Improved popup click-to-visible speed by loading sync and encryption modules after first paint
 - Kept the sign-in screen static and immediate while prewarming sync code in the background
