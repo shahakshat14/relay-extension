@@ -22,8 +22,6 @@ FILES=(
   crypto.js \
   sync.js \
   popup.html \
-  popup-app.html \
-  popup-bootstrap.js \
   popup.js \
   config.json \
   icons

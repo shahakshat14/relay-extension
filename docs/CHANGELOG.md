@@ -4,6 +4,11 @@ This public changelog tracks user-facing release changes. Internal deployment, b
 
 ## Unreleased
 
+## v1.0.6 — 2026-04-29
+- Fixed slow Microsoft Edge startup for downloaded release zips by removing the popup redirect handoff
+- Simplified the release package back to one popup document so Edge opens the action popup directly
+- Removed unused popup shell files from the downloadable build
+
 ## v1.0.5 — 2026-04-29
 - Changed the popup shell handoff to a local page navigation for better Edge compatibility
 - Removed the local `fetch` and DOMParser bootstrap path that could hang in Edge extension popups

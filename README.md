@@ -99,9 +99,7 @@ relay-extension/
 ├── config.js           — Public backend connection config
 ├── crypto.js           — AES-256-GCM + PBKDF2 (IIFE, exports window._relayCrypto)
 ├── sync.js             — Supabase client, bookmark engine, sync logic (IIFE, exports window._relay)
-├── popup.html          — Tiny instant shell for fast action-popup first paint
-├── popup-app.html      — Full popup views + design system CSS
-├── popup-bootstrap.js  — Mounts the full popup after the shell is visible
+├── popup.html          — Popup views + design system CSS
 ├── popup.js            — UI logic: all event handlers, view state
 ├── config.json         — Remote feature flags served via GitHub Pages
 ├── docs/               — Install, privacy, security, support, release notes

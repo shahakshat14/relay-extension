@@ -61,8 +61,9 @@ test('package script excludes non-extension pages', () => {
   assert.match(script, /RELAY_OUTPUT_DIR/);
   assert.match(script, /relay-extension-builds/);
   assert.match(script, /relay-extension-\$CHANNEL-v\$VERSION\.zip/);
-  assert.match(script, /popup-app\.html/);
-  assert.match(script, /popup-bootstrap\.js/);
+  assert.match(script, /popup\.html/);
+  assert.doesNotMatch(script, /popup-app\.html/);
+  assert.doesNotMatch(script, /popup-bootstrap\.js/);
   assert.doesNotMatch(script, /relay-extension-latest\.zip/);
   assert.doesNotMatch(script, new RegExp(`stable\\|${String.fromCharCode(98, 101, 116, 97)}`));
   assert.doesNotMatch(script, /\bpricing\b/);
@@ -95,22 +96,14 @@ test('public docs expose direct download and install instructions', () => {
 test('popup exposes a safe GitHub release update checker', () => {
   const popup = read('popup.js');
   const html = read('popup.html');
-  const app = read('popup-app.html');
-  const bootstrap = read('popup-bootstrap.js');
-  assert.match(html, /id="instantShell"/);
-  assert.match(html, /popup-bootstrap\.js/);
-  assert.doesNotMatch(html, /id="vSignIn"/);
-  assert.match(app, /id="vSignIn" class="view active"/);
-  assert.match(app, /<script src="popup\.js" defer><\/script>/);
-  assert.match(bootstrap, /requestAnimationFrame/);
-  assert.match(bootstrap, /popup-app\.html/);
-  assert.match(bootstrap, /window\.location\.replace/);
-  assert.doesNotMatch(bootstrap, /fetch\(/);
-  assert.doesNotMatch(bootstrap, /DOMParser/);
+  assert.match(html, /id="vSignIn" class="view active"/);
+  assert.match(html, /<script src="popup\.js" defer><\/script>/);
+  assert.doesNotMatch(html, /popup-bootstrap\.js/);
+  assert.doesNotMatch(html, /popup-app\.html/);
+  assert.doesNotMatch(html, /window\.location\.replace/);
   assert.doesNotMatch(html, /<script src="config\.js"/);
   assert.doesNotMatch(html, /<script src="crypto\.js"/);
   assert.doesNotMatch(html, /<script src="sync\.js"/);
-  assert.doesNotMatch(html, /<script src="popup\.js"/);
   assert.match(popup, /function ensureRelayModules\(\)/);
   assert.match(popup, /function warmRelayModules\(\)/);
   assert.match(popup, /RELEASE_API_URL='https:\/\/api\.github\.com\/repos\/trident-cx\/relay-extension\/releases\/latest'/);
@@ -119,8 +112,8 @@ test('popup exposes a safe GitHub release update checker', () => {
   assert.match(popup, /function compareVersions/);
   assert.match(popup, /setTimeout\(\(\)=>checkForUpdates\(\{silent:true\}\)/);
   assert.match(popup, /chrome\.tabs\.create\(\{url:updateDownloadUrl\}\)/);
-  assert.match(app, /id="btnCheckUpdate"/);
-  assert.match(app, /id="btnDownloadUpdate"/);
+  assert.match(html, /id="btnCheckUpdate"/);
+  assert.match(html, /id="btnDownloadUpdate"/);
 });
 
 test('repository has GitHub navigation and intake templates', () => {
@@ -178,7 +171,7 @@ test('public repo excludes private operations materials', () => {
 });
 
 test('public urls use relayextension domain', () => {
-  const publicFiles = read('README.md') + read('popup.js') + read('popup.html') + read('popup-app.html') + read('popup-bootstrap.js') + read('sync.js') + read('privacy.html') + read('pricing/index.html') + read('pricing/success.html') + read('manifest.json');
+  const publicFiles = read('README.md') + read('popup.js') + read('popup.html') + read('sync.js') + read('privacy.html') + read('pricing/index.html') + read('pricing/success.html') + read('manifest.json');
   const restrictedMenuLabel = new RegExp(`>${String.fromCharCode(79, 112, 101, 110)} ${String.fromCharCode(83, 111, 117, 114, 99, 101)}<`);
   const previousOwner = String.fromCharCode(116, 114, 105, 100, 101, 110, 116, 99, 120);
   assert.match(publicFiles, /https:\/\/relayextension\.com/);
