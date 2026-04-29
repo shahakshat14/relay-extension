@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Relay</title>
+<style>
+
+/* ══════════════════════════════════════════════════════════════
+   RELAY DESIGN SYSTEM v3
+   Direction: Quiet Utility
+   Brand: porcelain, ink, signal teal, and warm ember
+   ══════════════════════════════════════════════════════════════ */
+
+:root {
+  --bg:          #F7F4EE;
+  --surf-1:      #FFFDF8;
+  --surf-2:      #EFE9DE;
+  --surf-press:  #E5DED1;
+  --surf-input:  #FFFDF8;
+  --bdr:         rgba(38,34,27,0.10);
+  --bdr-2:       rgba(38,34,27,0.18);
+  --sep:         rgba(38,34,27,0.07);
+  --sh-card:     0 1px 1px rgba(38,34,27,0.04), 0 10px 24px rgba(38,34,27,0.07);
+  --sh-hero:     0 1px 1px rgba(38,34,27,0.05), 0 18px 38px rgba(38,34,27,0.10);
+  --sh-btn:      0 1px 2px rgba(38,34,27,0.10), 0 12px 26px rgba(12,110,110,0.24);
+  --t-1:         #242019;
+  --t-2:         rgba(36,32,25,0.62);
+  --t-3:         rgba(36,32,25,0.38);
+  --brand:       #0C6E6E;
+  --brand-2:     #084F4F;
+  --brand-glow:  rgba(12,110,110,0.18);
+  --brand-soft:  rgba(12,110,110,0.09);
+  --brand-grad:  linear-gradient(145deg, #18A7A0 0%, #0C6E6E 58%, #083F44 100%);
+  --brand-txt:   #075D5D;
+  --teal:        #0C6E6E;
+  --teal-soft:   rgba(12,110,110,0.10);
+  --teal-glow:   rgba(12,110,110,0.19);
+  --amber:       #A65F18;
+  --amber-soft:  rgba(166,95,24,0.10);
+  --red:         #B63D35;
+  --red-soft:    rgba(182,61,53,0.09);
+  --green:       #247A52;
+  --green-soft:  rgba(36,122,82,0.10);
+  --r-card:      8px;
+  --r-button:    8px;
+  --r-input:     8px;
+  --r-pill:      100px;
+  --r-icon:      9px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:          #151411;
+    --surf-1:      #201E1A;
+    --surf-2:      #2A2722;
+    --surf-press:  #343026;
+    --surf-input:  #24211D;
+    --bdr:         rgba(250,246,237,0.09);
+    --bdr-2:       rgba(250,246,237,0.16);
+    --sep:         rgba(250,246,237,0.07);
+    --sh-card:     none;
+    --sh-hero:     none;
+    --sh-btn:      0 10px 24px rgba(24,167,160,0.25);
+    --t-1:         #FBF7EF;
+    --t-2:         rgba(251,247,239,0.62);
+    --t-3:         rgba(251,247,239,0.36);
+    --brand:       #42C7BC;
+    --brand-2:     #1EA69C;
+    --brand-glow:  rgba(66,199,188,0.20);
+    --brand-soft:  rgba(66,199,188,0.11);
+    --brand-grad:  linear-gradient(145deg, #6FE0D5 0%, #1EA69C 56%, #0C6E6E 100%);
+    --brand-txt:   #79E6DD;
+    --teal:        #42C7BC;
+    --teal-soft:   rgba(66,199,188,0.12);
+    --teal-glow:   rgba(66,199,188,0.22);
+    --amber:       #F2AE62;
+    --amber-soft:  rgba(242,174,98,0.11);
+    --red:         #F1877D;
+    --red-soft:    rgba(241,135,125,0.12);
+    --green:       #77D69F;
+    --green-soft:  rgba(119,214,159,0.12);
+  }
+}
+
+/* ── Reset & base ─────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+body {
+  width: 360px;
+  background: var(--bg);
+  color: var(--t-1);
+  font-family: "Avenir Next", "SF Pro Text", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  overflow: hidden; position: relative; letter-spacing: 0;
+}
+@media (prefers-color-scheme: dark) {
+  body::before {
+    content: ''; position: fixed;
+    top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(66,199,188,0.35), transparent);
+    pointer-events: none; z-index: 0;
+  }
+}
+
+/* ── Views ──────────────────────────────────────────────── */
+.view { display: none; padding: 16px 16px 20px; position: relative; z-index: 1; }
+.view.active { display: block; animation: vIn .28s cubic-bezier(.2,.8,.2,1); }
+@keyframes vIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ── Nav ────────────────────────────────────────────────── */
+.nav {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 16px; min-height: 34px;
+}
+.logo {
+  width: 34px; height: 34px; border-radius: 9px;
+  background: var(--brand-grad);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  position: relative;
+  box-shadow: 0 0 0 0.5px rgba(12,110,110,0.40), 0 8px 18px rgba(12,110,110,0.18), inset 0 1px 0 rgba(255,255,255,0.22);
+}
+.logo svg { width: 23px; height: 23px; display: block; filter: drop-shadow(0 1px 0 rgba(0,0,0,0.10)); }
+.logo:hover svg { animation: logoRelay .7s cubic-bezier(.16,1,.3,1); }
+@keyframes logoRelay {
+  0%, 100% { transform: translateX(0); }
+  35% { transform: translateX(1.5px); }
+  70% { transform: translateX(-1.5px); }
+}
+.nav-title { font-size: 17px; font-weight: 650; letter-spacing: 0; color: var(--t-1); }
+.nav-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.done-btn {
+  background: none; border: none;
+  font-size: 15px; font-weight: 600;
+  color: var(--brand); cursor: pointer;
+  font-family: inherit; padding: 6px 2px;
+  transition: opacity .12s;
+}
+.done-btn:active { opacity: 0.4; }
+
+/* Plan badge */
+.badge {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;
+  padding: 3px 8px; border-radius: var(--r-pill);
+  background: var(--surf-2); color: var(--t-2); border: 1px solid var(--bdr);
+  transition: all .3s cubic-bezier(.34,1.56,.64,1);
+}
+.badge.pro {
+  background: var(--brand-soft); color: var(--brand-txt);
+  border-color: rgba(12,110,110,0.18);
+}
+@media (prefers-color-scheme: dark) {
+  .badge.pro { border-color: rgba(66,199,188,0.22); }
+}
+
+/* ── Sync hero ──────────────────────────────────────────── */
+.sync-hero {
+  width: 100%; background: var(--surf-1);
+  border: 1.5px solid var(--bdr); border-radius: var(--r-card);
+  padding: 20px 16px 16px; margin-bottom: 10px;
+  cursor: pointer; position: relative; overflow: hidden;
+  outline: none; text-align: left; box-shadow: var(--sh-hero);
+  transition: transform .2s cubic-bezier(.34,1.56,.64,1), box-shadow .2s, border-color .2s, background .12s;
+}
+.sync-hero::after {
+  content: ''; position: absolute; inset: 0;
+  border-radius: calc(var(--r-card) - 1px);
+  background: linear-gradient(155deg, rgba(255,255,255,0.55) 0%, transparent 42%);
+  pointer-events: none;
+}
+@media (prefers-color-scheme: dark) {
+  .sync-hero::after { background: linear-gradient(155deg, rgba(255,255,255,0.045) 0%, transparent 50%); }
+}
+.sync-hero:hover:not(:disabled) {
+  border-color: var(--bdr-2);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.07), 0 16px 36px rgba(0,0,0,0.1);
+}
+@media (prefers-color-scheme: dark) {
+  .sync-hero:hover:not(:disabled) { background: #17171B; box-shadow: none; }
+}
+.sync-hero:active:not(:disabled) { transform: scale(0.983); }
+.sync-hero:disabled { cursor: default; transform: none; }
+.sync-hero.syncing { border-color: var(--brand); }
+.sync-hero.done    { border-color: var(--teal); }
+.sync-hero.error   { border-color: var(--red); }
+
+/* Orb */
+.orb-wrap { display: flex; justify-content: center; margin-bottom: 14px; position: relative; }
+.orb {
+  width: 60px; height: 60px; border-radius: 50%;
+  background: var(--brand-soft);
+  display: flex; align-items: center; justify-content: center;
+  position: relative;
+  transition: all .35s cubic-bezier(.34,1.56,.64,1);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.3);
+}
+@media (prefers-color-scheme: dark) {
+  .orb { box-shadow: inset 0 1px 0 rgba(255,255,255,0.06); }
+}
+.orb.syncing {
+  background: var(--brand);
+  box-shadow: 0 0 0 8px var(--brand-glow), 0 0 28px var(--brand-glow);
+  animation: orbBreath 1.8s ease-in-out infinite alternate;
+}
+@keyframes orbBreath {
+  from { box-shadow: 0 0 0 5px var(--brand-glow), 0 0 14px var(--brand-glow); }
+  to   { box-shadow: 0 0 0 11px var(--brand-glow), 0 0 34px var(--brand-glow); }
+}
+.orb.done {
+  background: var(--teal);
+  box-shadow: 0 0 0 8px var(--teal-glow);
+  animation: orbPop .36s cubic-bezier(.2,.8,.2,1) forwards;
+}
+@keyframes orbPop { 0% { transform: scale(.92); } 100% { transform: scale(1); } }
+.orb.error {
+  background: var(--red); box-shadow: 0 0 0 6px var(--red-soft);
+  animation: orbShake .28s ease-in-out;
+}
+@keyframes orbShake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+
+/* Spinning arc */
+.orb-ring {
+  position: absolute; inset: -4px; border-radius: 50%;
+  border: 2px solid transparent;
+  border-top-color: rgba(255,255,255,0.65);
+  border-right-color: rgba(255,255,255,0.18);
+  opacity: 0; transition: opacity .2s;
+}
+.orb.syncing .orb-ring { opacity: 1; animation: ringRot .72s linear infinite; }
+@keyframes ringRot { to { transform: rotate(360deg); } }
+
+.orb-ico {
+  color: var(--brand); transition: transform .35s cubic-bezier(.34,1.56,.64,1), color .2s;
+  position: relative; z-index: 1;
+  display: flex; align-items: center; justify-content: center;
+}
+.orb-ico svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.orb.syncing .orb-ico, .orb.done .orb-ico, .orb.error .orb-ico { color: #fff; }
+.orb.syncing .orb-ico { animation: relayPass 1.4s ease-in-out infinite; }
+.sync-hero:hover:not(:disabled) .orb-ico { transform: scale(1.13) rotate(-14deg); }
+@keyframes relayPass {
+  0%, 100% { transform: translateX(-1px); }
+  50% { transform: translateX(2px); }
+}
+
+/* Pulse rings behind orb */
+.orb-pulse {
+  position: absolute; width: 60px; height: 60px; border-radius: 50%;
+  pointer-events: none;
+}
+.orb-pulse::before, .orb-pulse::after {
+  content: ''; position: absolute; inset: 0;
+  border-radius: 50%; border: 1.5px solid var(--brand);
+  opacity: 0;
+}
+.orb.syncing + .orb-pulse::before { animation: pulseRing 2s ease-out infinite; }
+.orb.syncing + .orb-pulse::after  { animation: pulseRing 2s ease-out .85s infinite; }
+@keyframes pulseRing {
+  0%   { transform: scale(1); opacity: 0.45; }
+  100% { transform: scale(2.3); opacity: 0; }
+}
+
+.sync-title { font-size: 18px; font-weight: 750; text-align: center; letter-spacing: -0.01em; color: var(--t-1); margin-bottom: 3px; }
+.sync-sub   { font-size: 13px; color: var(--t-2); text-align: center; line-height: 1.4; min-height: 18px; }
+
+/* Stats */
+.sync-stats {
+  display: flex; justify-content: center;
+  margin-top: 14px; padding-top: 13px; border-top: 1px solid var(--sep);
+  opacity: 0; max-height: 0; overflow: hidden;
+  transition: opacity .3s, max-height .35s;
+}
+.sync-stats.visible { opacity: 1; max-height: 56px; }
+.stat { flex: 1; text-align: center; padding: 0 8px; }
+.stat-val { font-size: 18px; font-weight: 750; letter-spacing: 0; color: var(--t-1); font-variant-numeric: tabular-nums; }
+.stat-lbl { font-size: 10px; color: var(--t-3); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; font-weight: 600; }
+.stat-divider { width: 1px; background: var(--sep); align-self: stretch; }
+
+/* Bouncing dots */
+.sync-dots { display: flex; justify-content: center; gap: 5px; margin-top: 10px; opacity: 0; transition: opacity .2s; }
+.sync-hero.syncing .sync-dots { opacity: 1; }
+.dot { width: 4px; height: 4px; border-radius: 50%; background: var(--brand); animation: dotBounce 1.35s ease-in-out infinite; }
+.dot:nth-child(2) { animation-delay: .15s; }
+.dot:nth-child(3) { animation-delay: .3s; }
+@keyframes dotBounce { 0%,60%,100% { opacity: .2; transform: scale(.6) translateY(0); } 30% { opacity: 1; transform: scale(1) translateY(-3px); } }
+
+/* ── Promo + alert cards ─────────────────────────────────── */
+.promo-card {
+  display: none; align-items: center; gap: 12px;
+  padding: 11px 13px; margin-bottom: 10px;
+  background: var(--brand-soft);
+  border: 1px solid rgba(12,110,110,0.14); border-radius: var(--r-card);
+  cursor: pointer; width: 100%; font-family: inherit; text-align: left;
+  transition: all .15s;
+}
+.promo-card.show { display: flex; }
+.promo-card:hover { background: var(--brand-glow); transform: translateY(-1px); }
+.promo-icon {
+  width: 32px; height: 32px; border-radius: var(--r-icon);
+  background: var(--brand-grad);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  box-shadow: 0 8px 18px rgba(12,110,110,0.18);
+}
+.promo-icon svg { width: 14px; height: 14px; stroke: #fff; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.promo-text { flex: 1; font-size: 13px; color: var(--t-1); line-height: 1.35; }
+.promo-text b { font-weight: 600; }
+.promo-text span { color: var(--t-2); display: block; font-size: 11.5px; margin-top: 1px; }
+.promo-arrow { font-size: 13px; font-weight: 600; color: var(--brand); }
+
+.alert-card {
+  display: none; align-items: center; gap: 10px;
+  padding: 11px 13px; margin-bottom: 10px;
+  background: var(--amber-soft); border: 1px solid rgba(180,83,9,0.14); border-radius: var(--r-card);
+}
+@media (prefers-color-scheme: dark) { .alert-card { border-color: rgba(252,211,77,0.16); } }
+.alert-card.show { display: flex; }
+.alert-text { flex: 1; font-size: 13px; color: var(--t-1); line-height: 1.35; }
+.alert-text b { color: var(--amber); font-weight: 600; }
+.alert-btn { font-size: 13px; font-weight: 600; color: var(--amber); background: none; border: none; cursor: pointer; font-family: inherit; }
+
+/* ── List rows ──────────────────────────────────────────── */
+.list-section {
+  background: var(--surf-1); border: 1px solid var(--bdr);
+  border-radius: var(--r-card); overflow: hidden;
+  margin-bottom: 10px; box-shadow: var(--sh-card);
+}
+.list-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 13px; background: var(--surf-1);
+  border: none; cursor: pointer; transition: background .1s;
+  text-align: left; width: 100%; font-family: inherit; color: var(--t-1);
+}
+.list-row + .list-row { border-top: 1px solid var(--sep); }
+.list-row:hover  { background: var(--surf-2); }
+.list-row:active { background: var(--surf-press); }
+.list-row:disabled { cursor: default; opacity: 0.4; }
+.row-icon {
+  width: 28px; height: 28px; border-radius: var(--r-icon);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; background: var(--brand-soft);
+}
+.row-icon svg { width: 14px; height: 14px; stroke: var(--brand); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.row-content { flex: 1; min-width: 0; }
+.row-title { font-size: 15px; font-weight: 500; color: var(--t-1); letter-spacing: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row-subtitle { font-size: 12px; color: var(--t-2); margin-top: 1px; }
+.row-trailing { font-size: 12px; color: var(--t-3); flex-shrink: 0; }
+.row-trailing svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; }
+
+/* Toggle */
+.toggle { position: relative; flex-shrink: 0; }
+.toggle input { display: none; }
+.toggle-track {
+  display: block; width: 44px; height: 26px;
+  background: var(--surf-press); border-radius: 13px; position: relative;
+  border: 1px solid var(--bdr);
+  transition: background .22s cubic-bezier(.34,1.2,.64,1), border-color .22s;
+}
+@media (prefers-color-scheme: dark) { .toggle-track { background: #38383D; border-color: transparent; } }
+.toggle-thumb {
+  position: absolute; top: 2px; left: 2px;
+  width: 20px; height: 20px; background: #fff; border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.1);
+  transition: transform .25s cubic-bezier(.34,1.4,.64,1);
+}
+.toggle input:checked + .toggle-track { background: var(--teal); border-color: transparent; }
+.toggle input:checked + .toggle-track .toggle-thumb { transform: translateX(18px); }
+
+.section-header {
+  font-size: 11.5px; font-weight: 600; color: var(--t-3);
+  text-transform: uppercase; letter-spacing: 0.6px;
+  padding: 0 3px; margin: 18px 0 7px;
+}
+.section-footer { font-size: 12px; color: var(--t-2); padding: 6px 3px 0; line-height: 1.5; }
+.section-footer a { color: var(--brand); text-decoration: none; }
+
+/* ── Inputs ─────────────────────────────────────────────── */
+.field { margin-bottom: 10px; }
+.field-label { font-size: 12px; font-weight: 500; color: var(--t-2); margin-bottom: 6px; padding-left: 2px; }
+.input-wrap { position: relative; }
+.input {
+  width: 100%; padding: 13px 42px 13px 13px;
+  background: var(--surf-input); border: 1.5px solid var(--bdr);
+  border-radius: var(--r-input); color: var(--t-1);
+  font-size: 15px; font-family: inherit; outline: none; letter-spacing: 0;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  transition: border-color .15s, box-shadow .15s; -webkit-appearance: none;
+}
+.input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
+.input::placeholder { color: var(--t-3); }
+.input.valid { border-color: var(--teal); }
+.input.taken { border-color: var(--red); }
+.input-eye {
+  position: absolute; right: 11px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; cursor: pointer; padding: 4px;
+  color: var(--t-3); transition: color .12s;
+  display: flex; align-items: center; justify-content: center;
+}
+.input-eye:hover { color: var(--t-2); }
+.input-eye svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; }
+
+/* Username status */
+.status-row {
+  display: flex; align-items: center; gap: 7px;
+  padding: 0 2px; margin: -2px 0 8px;
+  min-height: 18px; font-size: 12px; color: var(--t-2);
+  opacity: 0; transition: opacity .2s;
+}
+.status-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--t-3); flex-shrink: 0; transition: background .2s; }
+.status-row.checking .status-dot { animation: sBlink .7s ease-in-out infinite alternate; }
+@keyframes sBlink { from { opacity: 0.2; } to { opacity: 1; } }
+.status-row.ok    { color: var(--teal); }
+.status-row.ok    .status-dot { background: var(--teal); }
+.status-row.taken { color: var(--red); }
+.status-row.taken .status-dot { background: var(--red); }
+
+/* Suggestions */
+.suggestions { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
+.sug-btn {
+  font-size: 12px; font-weight: 500; font-family: inherit;
+  padding: 5px 11px; border-radius: var(--r-pill);
+  background: var(--surf-1); border: 1px solid var(--bdr);
+  color: var(--t-2); cursor: pointer; box-shadow: var(--sh-card);
+  transition: all .14s;
+}
+.sug-btn:hover { color: var(--brand); border-color: rgba(12,110,110,0.28); background: var(--brand-soft); }
+
+/* Generated password card */
+.gen-card {
+  background: var(--brand-soft); border: 1.5px solid rgba(12,110,110,0.16);
+  border-radius: var(--r-input); padding: 12px;
+  display: flex; align-items: center; gap: 10px; margin-bottom: 8px;
+}
+.gen-text {
+  flex: 1; font-size: 13.5px; font-weight: 600;
+  color: var(--brand-txt); letter-spacing: 0.5px;
+  word-break: break-all; line-height: 1.5;
+  font-family: ui-monospace, "SF Mono", monospace;
+}
+.gen-actions { display: flex; gap: 5px; flex-shrink: 0; }
+.gen-btn {
+  width: 30px; height: 30px; border-radius: 8px;
+  background: var(--surf-1); border: 1px solid var(--bdr);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  color: var(--brand-txt); transition: all .12s; box-shadow: var(--sh-card);
+}
+.gen-btn svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; }
+.gen-btn:hover { background: var(--brand); color: #fff; border-color: var(--brand); }
+
+/* Strength bars */
+.strength-bars { display: flex; gap: 3px; margin-top: 8px; margin-bottom: 5px; }
+.strength-bar { flex: 1; height: 3px; border-radius: 2px; background: var(--bdr); transition: background .28s; }
+.strength-text { font-size: 11.5px; color: var(--t-2); text-align: right; margin-bottom: 10px; min-height: 14px; transition: color .25s; }
+
+/* Password match */
+.pass-match { font-size: 12px; margin: 0 2px 10px; display: flex; align-items: center; gap: 5px; opacity: 0; transition: opacity .2s; }
+.pass-match.show { opacity: 1; }
+.pass-match.ok   { color: var(--teal); }
+.pass-match.fail { color: var(--red); }
+
+/* ── Buttons ─────────────────────────────────────────────── */
+.btn {
+  width: 100%; padding: 13px 16px; border: none;
+  border-radius: var(--r-button);
+  font-size: 15px; font-weight: 650; letter-spacing: 0;
+  cursor: pointer; font-family: inherit;
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  margin-bottom: 8px;
+  transition: transform .14s cubic-bezier(.34,1.56,.64,1), background .12s, box-shadow .12s, opacity .12s;
+}
+.btn:disabled { opacity: 0.36; cursor: default; transform: none !important; }
+.btn:active:not(:disabled) { transform: scale(0.972); }
+
+.btn-primary { background: var(--brand-grad); color: #fff; box-shadow: var(--sh-btn); }
+.btn-primary:hover:not(:disabled) { box-shadow: 0 2px 4px rgba(0,0,0,0.1), 0 8px 24px rgba(91,92,246,0.46); }
+
+.btn-secondary {
+  background: var(--surf-1); color: var(--t-1);
+  border: 1.5px solid var(--bdr); box-shadow: var(--sh-card);
+}
+.btn-secondary:hover:not(:disabled) { background: var(--surf-2); border-color: var(--bdr-2); }
+
+.btn-tinted {
+  background: var(--brand-soft); color: var(--brand-txt);
+  border: 1px solid rgba(91,92,246,0.13);
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+}
+.btn-tinted:hover:not(:disabled) { background: var(--brand-glow); }
+.btn-tinted svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+
+.btn-danger { background: var(--red-soft); color: var(--red); border: 1px solid rgba(220,38,38,0.10); }
+.btn-danger:hover:not(:disabled) { background: rgba(220,38,38,0.13); }
+@media (prefers-color-scheme: dark) {
+  .btn-danger:hover:not(:disabled) { background: rgba(248,113,113,0.17); }
+}
+
+.btn-text { background: none; color: var(--brand); box-shadow: none; font-size: 14px; padding: 8px; margin-bottom: 4px; font-weight: 500; }
+.btn-text:hover { opacity: 0.65; }
+
+/* Spinner */
+.sp { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.28); border-top-color: #fff; border-radius: 50%; animation: sSpin .6s linear infinite; }
+@keyframes sSpin { to { transform: rotate(360deg); } }
+
+/* ── Hero sections ──────────────────────────────────────── */
+.hero { text-align: center; padding: 12px 4px 20px; }
+.hero-icon {
+  width: 58px; height: 58px; border-radius: 8px;
+  background: var(--brand-soft);
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 14px;
+}
+.hero-icon svg { width: 26px; height: 26px; stroke: var(--brand); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.hero-icon.danger { background: var(--red-soft); }
+.hero-icon.danger svg { stroke: var(--red); }
+.hero-icon.success { background: var(--teal-soft); animation: orbPop .45s cubic-bezier(.34,1.56,.64,1); }
+.hero-icon.success svg { stroke: var(--teal); }
+.hero-title { font-size: 23px; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 5px; }
+.hero-sub { font-size: 14px; color: var(--t-2); line-height: 1.55; max-width: 256px; margin: 0 auto; }
+
+/* ── Info cards (Settings) ───────────────────────────────── */
+.info-card {
+  background: var(--surf-1); border: 1px solid var(--bdr);
+  border-radius: var(--r-card); padding: 13px 14px; margin-bottom: 8px; box-shadow: var(--sh-card);
+}
+.info-head { display: flex; align-items: center; gap: 10px; margin-bottom: 5px; }
+.info-icon {
+  width: 30px; height: 30px; border-radius: var(--r-icon);
+  background: var(--brand-soft);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.info-icon svg { width: 15px; height: 15px; stroke: var(--brand); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.info-title { font-size: 14px; font-weight: 650; letter-spacing: 0; flex: 1; }
+.info-body { font-size: 13px; color: var(--t-2); line-height: 1.55; }
+.info-body b { color: var(--t-1); font-weight: 500; }
+.update-actions { display: flex; gap: 8px; margin-top: 10px; }
+.update-actions .btn { margin-bottom: 0; padding: 10px 12px; font-size: 13px; }
+.update-meta { font-size: 11.5px; color: var(--t-3); margin-top: 8px; line-height: 1.45; }
+
+/* ── Notices ─────────────────────────────────────────────── */
+.notice {
+  background: var(--surf-1); border: 1px solid var(--bdr);
+  border-radius: var(--r-card); padding: 12px 13px; margin-bottom: 10px;
+  font-size: 13px; color: var(--t-2); line-height: 1.55; box-shadow: var(--sh-card);
+}
+.notice b { color: var(--t-1); font-weight: 600; }
+.notice.amber { background: var(--amber-soft); border-color: rgba(180,83,9,0.13); }
+.notice.amber b { color: var(--amber); }
+@media (prefers-color-scheme: dark) { .notice.amber { border-color: rgba(252,211,77,0.16); } }
+.notice.info { background: var(--brand-soft); border-color: rgba(91,92,246,0.16); }
+.notice.info b { color: var(--brand-txt); }
+@media (prefers-color-scheme: dark) { .notice.info { border-color: rgba(66,199,188,0.2); } }
+.notice a { color: var(--brand); text-decoration: none; font-weight: 500; }
+
+.privacy-note { font-size: 12.5px; color: var(--t-3); text-align: center; margin: 10px 0 4px; line-height: 1.55; }
+.privacy-note b { color: var(--t-2); font-weight: 500; }
+
+/* ── Toast ───────────────────────────────────────────────── */
+.toast {
+  margin-top: 8px; padding: 11px 13px; border-radius: var(--r-input);
+  font-size: 13px; line-height: 1.45; display: none;
+  animation: tIn .24s cubic-bezier(.2,.8,.2,1);
+}
+@keyframes tIn { from { opacity: 0; transform: scale(.97) translateY(4px); } to { opacity: 1; transform: none; } }
+.toast.ok  { display: block; background: var(--teal-soft); color: var(--teal); border: 1px solid rgba(13,148,136,0.14); }
+@media (prefers-color-scheme: dark) { .toast.ok { border-color: rgba(45,212,191,0.18); } }
+.toast.err { display: block; background: var(--red-soft); color: var(--red); border: 1px solid rgba(220,38,38,0.10); }
+@media (prefers-color-scheme: dark) { .toast.err { border-color: rgba(248,113,113,0.13); } }
+
+/* ── Misc ────────────────────────────────────────────────── */
+.divider { height: 1px; background: var(--sep); margin: 14px 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+</style>
+</head>
+<body>
+
+<!-- SIGN IN -->
+<div id="vSignIn" class="view">
+  <div class="nav">
+    <div class="logo">
+      <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Top arrow: right-pointing, upper area -->
+  <rect x="2" y="5" width="10" height="2.2" rx="1.1" fill="rgba(255,255,255,0.95)"/>
+  <polygon points="11,2.5 15.5,6.1 11,9.7" fill="rgba(255,255,255,0.95)"/>
+  <!-- Bottom arrow: left-pointing, lower area, offset right -->
+  <rect x="8" y="12.8" width="10" height="2.2" rx="1.1" fill="rgba(255,255,255,0.72)"/>
+  <polygon points="9,10.3 4.5,13.9 9,17.5" fill="rgba(255,255,255,0.72)"/>
+</svg>
+    </div>
+    <span class="nav-title">Relay</span>
+  </div>
+  <div class="hero">
+    <div class="hero-icon">
+      <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+    </div>
+    <div class="hero-title">Bookmarks, in sync.</div>
+    <div class="hero-sub">Sign in to access your encrypted vault.</div>
+  </div>
+  <div class="field">
+    <div class="field-label">Username</div>
+    <div class="input-wrap">
+      <input class="input" id="siUsername" type="text" placeholder="your-username"
+        autocomplete="username" spellcheck="false" autocorrect="off" autocapitalize="off">
+    </div>
+  </div>
+  <div class="field">
+    <div class="field-label">Password</div>
+    <div class="input-wrap">
+      <input class="input" id="siPassword" type="password" placeholder="••••••••••" autocomplete="current-password">
+      <button class="input-eye" id="siEye" aria-label="Show password">
+        <svg viewBox="0 0 20 20"><path d="M1 10s3.5-7 9-7 9 7 9 7-3.5 7-9 7-9-7-9-7z"/><circle cx="10" cy="10" r="3"/></svg>
+      </button>
+    </div>
+  </div>
+  <button class="btn btn-primary" id="btnSignIn">Sign In</button>
+  <div class="privacy-note">No reset email. <b>Your password is the key.</b><br>Keep it safe. Relay keeps everything else simple.</div>
+  <div class="divider"></div>
+  <div style="text-align:center">
+    <button class="btn-text" id="btnNewUserSignIn">New to Relay? Create account →</button>
+  </div>
+  <div class="toast" id="toastSignIn"></div>
+</div>
+
+<!-- SETUP -->
+<div id="vSetup" class="view">
+  <div class="nav">
+    <div class="logo">
+      <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Top arrow: right-pointing, upper area -->
+  <rect x="2" y="5" width="10" height="2.2" rx="1.1" fill="rgba(255,255,255,0.95)"/>
+  <polygon points="11,2.5 15.5,6.1 11,9.7" fill="rgba(255,255,255,0.95)"/>
+  <!-- Bottom arrow: left-pointing, lower area, offset right -->
+  <rect x="8" y="12.8" width="10" height="2.2" rx="1.1" fill="rgba(255,255,255,0.72)"/>
+  <polygon points="9,10.3 4.5,13.9 9,17.5" fill="rgba(255,255,255,0.72)"/>
+</svg>
+    </div>
+    <span class="nav-title">Create Vault</span>
+    <div class="nav-right"><button class="done-btn" id="btnBackSetup">Back</button></div>
+  </div>
+  <div class="field">
+    <div class="field-label">Choose a username</div>
+    <div class="input-wrap">
+      <input class="input" id="unameInput" type="text" placeholder="e.g. quiet-vault"
+        autocomplete="username" spellcheck="false" autocorrect="off" autocapitalize="off">
+    </div>
+    <div class="status-row" id="unameStatus">
+      <div class="status-dot"></div><span id="unameMsg"></span>
+    </div>
+    <div class="suggestions" id="suggestions" style="display:none"></div>
+  </div>
+  <div class="field">
+    <div class="field-label">Password</div>
+    <div class="gen-card" id="genBox">
+      <span class="gen-text" id="genText">Generating…</span>
+      <div class="gen-actions">
+        <button class="gen-btn" id="btnRefresh" title="New password" aria-label="Generate new password">
+          <svg viewBox="0 0 16 16"><path d="M14 2v4h-4"/><path d="M2 14v-4h4"/><path d="M4.5 9A5.5 5.5 0 0 0 14 10M11.5 7A5.5 5.5 0 0 0 2 6"/></svg>
+        </button>
+        <button class="gen-btn" id="btnCopyGen" title="Copy" aria-label="Copy password">
+          <svg viewBox="0 0 16 16"><rect x="5" y="5" width="9" height="9" rx="1.5"/><path d="M11 5V3a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h2"/></svg>
+        </button>
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--t-3);text-align:center;margin:4px 0 8px">Use this password or type your own.</div>
+    <div class="input-wrap">
+      <input class="input" id="passInput" type="password" placeholder="Password" autocomplete="new-password">
+      <button class="input-eye" id="passEye" aria-label="Show password">
+        <svg viewBox="0 0 20 20"><path d="M1 10s3.5-7 9-7 9 7 9 7-3.5 7-9 7-9-7-9-7z"/><circle cx="10" cy="10" r="3"/></svg>
+      </button>
+    </div>
+    <div class="strength-bars">
+      <div class="strength-bar" id="sb1"></div><div class="strength-bar" id="sb2"></div>
+      <div class="strength-bar" id="sb3"></div><div class="strength-bar" id="sb4"></div>
+    </div>
+    <div class="strength-text" id="strLbl"></div>
+    <div class="input-wrap">
+      <input class="input" id="passConfirm" type="password" placeholder="Confirm password" autocomplete="new-password">
+      <button class="input-eye" id="passConfirmEye" aria-label="Show password">
+        <svg viewBox="0 0 20 20"><path d="M1 10s3.5-7 9-7 9 7 9 7-3.5 7-9 7-9-7-9-7z"/><circle cx="10" cy="10" r="3"/></svg>
+      </button>
+    </div>
+    <div class="pass-match" id="passMatchStatus"></div>
+  </div>
+  <div class="notice amber">
+    <b>Save your password.</b> It unlocks your vault. If it is lost, it cannot be recovered.
+  </div>
+  <button class="btn btn-primary" id="btnCreate" disabled>Create Vault →</button>
+  <div class="toast" id="toastSetup"></div>
+</div>
+
+<!-- WELCOME -->
+<div id="vWelcome" class="view" style="text-align:center">
+  <div class="nav" style="justify-content:center">
+    <div class="logo">
+      <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Top arrow: right-pointing, upper area -->
+  <rect x="2" y="5" width="10" height="2.2" rx="1.1" fill="rgba(255,255,255,0.95)"/>
+  <polygon points="11,2.5 15.5,6.1 11,9.7" fill="rgba(255,255,255,0.95)"/>
+  <!-- Bottom arrow: left-pointing, lower area, offset right -->
+  <rect x="8" y="12.8" width="10" height="2.2" rx="1.1" fill="rgba(255,255,255,0.72)"/>
+  <polygon points="9,10.3 4.5,13.9 9,17.5" fill="rgba(255,255,255,0.72)"/>
+</svg>
+    </div>
+    <span class="nav-title">Relay</span>
+  </div>
+  <div class="hero" style="padding-top:22px">
+    <div class="hero-icon success">
+      <svg viewBox="0 0 24 24" style="stroke-width:2.2"><polyline points="20 6 9 17 4 12"/></svg>
+    </div>
+    <div class="hero-title">Vault ready.</div>
+    <div class="hero-sub">Relay is encrypting and syncing your bookmarks.</div>
+  </div>
+  <div class="notice info" style="text-align:left">
+    <b>Sync another browser?</b> Install Relay there and sign in with the same username and password.
+  </div>
+</div>
+
+<!-- MAIN -->
+<div id="vMain" class="view">
+  <div class="nav">
+    <div class="logo">
+      <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Top arrow: right-pointing, upper area -->
+  <rect x="2" y="5" width="10" height="2.2" rx="1.1" fill="rgba(255,255,255,0.95)"/>
+  <polygon points="11,2.5 15.5,6.1 11,9.7" fill="rgba(255,255,255,0.95)"/>
+  <!-- Bottom arrow: left-pointing, lower area, offset right -->
+  <rect x="8" y="12.8" width="10" height="2.2" rx="1.1" fill="rgba(255,255,255,0.72)"/>
+  <polygon points="9,10.3 4.5,13.9 9,17.5" fill="rgba(255,255,255,0.72)"/>
+</svg>
+    </div>
+    <span class="nav-title">Relay</span>
+    <div class="nav-right"><span class="badge" id="mainChip">FREE</span></div>
+  </div>
+
+  <button class="promo-card" id="upgTeaser">
+    <div class="promo-icon">
+      <svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+    </div>
+    <div class="promo-text">
+      <b>Relay Pro</b>
+      <span>Unlimited bookmarks · auto-sync · restore history</span>
+    </div>
+    <span class="promo-arrow">$18/yr →</span>
+  </button>
+
+  <div class="alert-card" id="upgradeAlert">
+    <div class="alert-text"><b>Bookmark limit reached.</b> Upgrade to sync everything.</div>
+    <button class="alert-btn" id="upgradeAlertBtn">Upgrade →</button>
+  </div>
+
+  <button class="sync-hero" id="btnSync">
+    <div class="orb-wrap">
+      <div class="orb" id="mainOrb">
+        <div class="orb-ring"></div>
+        <span class="orb-ico" id="orbIco">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="1 4 1 10 7 10"/>
+            <polyline points="23 20 23 14 17 14"/>
+            <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10M23 14l-4.64 4.36A9 9 0 0 1 3.51 15"/>
+          </svg>
+        </span>
+      </div>
+      <div class="orb-pulse"></div>
+    </div>
+    <div class="sync-title" id="orbLabel">Sync</div>
+    <div class="sync-sub" id="orbSub">Encrypt and update your vault.</div>
+    <div class="sync-stats" id="syncStats">
+      <div class="stat">
+        <div class="stat-val" id="statCount">—</div>
+        <div class="stat-lbl">Bookmarks</div>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat">
+        <div class="stat-val" id="statTime">—</div>
+        <div class="stat-lbl">Last sync</div>
+      </div>
+    </div>
+    <div class="sync-dots">
+      <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+    </div>
+  </button>
+
+  <div class="list-section">
+    <div class="list-row" style="align-items:center">
+      <div class="row-icon" style="background:var(--teal-soft)">
+        <svg viewBox="0 0 24 24" style="stroke:var(--teal)">
+          <circle cx="12" cy="12" r="3"/><path d="M12 1v3M12 20v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M1 12h3M20 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/>
+        </svg>
+      </div>
+      <div class="row-content">
+        <div class="row-title" style="font-size:14px;font-weight:500">Auto-sync</div>
+        <div class="row-subtitle">Syncs on every change · Pro</div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="chkAuto">
+        <div class="toggle-track"><div class="toggle-thumb"></div></div>
+      </label>
+    </div>
+    <button class="list-row" id="accountRow">
+      <div class="row-icon" style="background:var(--surf-2)">
+        <svg viewBox="0 0 24 24" style="stroke:var(--t-2)">
+          <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+        </svg>
+      </div>
+      <div class="row-content">
+        <div class="row-title" id="mainUsername">—</div>
+        <div class="row-subtitle" id="mainPlanHint">Free plan</div>
+      </div>
+      <div class="row-trailing">
+        <svg viewBox="0 0 20 20"><path d="M7 5l5 5-5 5"/></svg>
+      </div>
+    </button>
+  </div>
+
+  <div class="toast" id="toastMain"></div>
+</div>
+
+<!-- SETTINGS -->
+<div id="vSecurity" class="view">
+  <div class="nav">
+    <div class="logo">
+      <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Top arrow: right-pointing, upper area -->
+  <rect x="2" y="5" width="10" height="2.2" rx="1.1" fill="rgba(255,255,255,0.95)"/>
+  <polygon points="11,2.5 15.5,6.1 11,9.7" fill="rgba(255,255,255,0.95)"/>
+  <!-- Bottom arrow: left-pointing, lower area, offset right -->
+  <rect x="8" y="12.8" width="10" height="2.2" rx="1.1" fill="rgba(255,255,255,0.72)"/>
+  <polygon points="9,10.3 4.5,13.9 9,17.5" fill="rgba(255,255,255,0.72)"/>
+</svg>
+    </div>
+    <span class="nav-title">Settings</span>
+    <div class="nav-right"><button class="done-btn" id="btnBackMain">Done</button></div>
+  </div>
+
+  <div class="section-header">Plan</div>
+  <div class="info-card">
+    <div class="info-head">
+      <div class="info-icon">
+        <svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+      </div>
+      <div class="info-title" id="secPlanTitle">Free Plan</div>
+      <span class="badge" id="secChip">FREE</span>
+    </div>
+  <div class="info-body" id="secPlanBody">Up to 500 bookmarks · 2 browsers · manual sync.</div>
+  </div>
+  <button class="btn btn-primary" id="btnUpgrade">Upgrade to Pro — $18/year</button>
+  <button class="btn btn-tinted" id="btnShowGift">
+    <svg viewBox="0 0 24 24"><path d="M20 12v10H4V12"/><path d="M22 7H2v5h20V7z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
+    Redeem gift code
+  </button>
+  <button class="btn btn-tinted" id="btnShowHistory" style="display:none">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    Sync history
+  </button>
+
+  <div class="section-header">Updates</div>
+  <div class="info-card" id="updateCard">
+    <div class="info-head">
+      <div class="info-icon">
+        <svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-9 9"/><path d="M3 12a9 9 0 0 1 9-9"/><path d="M21 3v6h-6"/><path d="M3 21v-6h6"/></svg>
+      </div>
+      <div class="info-title" id="updateTitle">Updates</div>
+    </div>
+    <div class="info-body" id="updateBody">Check for a newer versioned Relay build. Updates stay user-approved.</div>
+    <div class="update-actions">
+      <button class="btn btn-tinted" id="btnCheckUpdate">Check</button>
+      <button class="btn btn-secondary" id="btnInstallGuide">Guide</button>
+      <button class="btn btn-primary" id="btnDownloadUpdate" style="display:none">Download</button>
+    </div>
+    <div class="update-meta" id="updateMeta"></div>
+  </div>
+
+  <div class="section-header">Privacy</div>
+  <div class="info-card">
+    <div class="info-head">
+      <div class="info-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      </div>
+    <div class="info-title">Private by default</div>
+    </div>
+  <div class="info-body">Bookmarks are encrypted on your device before sync. <b>Nobody can read them</b> - not even us.</div>
+  </div>
+  <div class="info-card">
+    <div class="info-head">
+      <div class="info-icon">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+      </div>
+      <div class="info-title">No email. No tracking.</div>
+    </div>
+    <div class="info-body">No email. No name. No tracking. Relay keeps account data minimal.</div>
+  </div>
+
+  <div class="section-header">Account</div>
+  <button class="btn btn-secondary" id="btnLock">Sign out of this browser</button>
+  <button class="btn btn-danger" id="btnDeleteAccount">Delete account &amp; vault</button>
+
+  <div class="section-footer" style="text-align:center;padding:16px 3px 4px">
+    <a href="https://relayextension.com/privacy" target="_blank" rel="noopener noreferrer">Privacy policy</a>
+    <span style="margin:0 5px;opacity:0.35">·</span>
+    <a href="https://github.com/trident-cx/relay-extension/issues" target="_blank" rel="noopener noreferrer">Support</a>
+    <div style="margin-top:8px;font-size:11px;color:var(--t-3)" id="versionLabel">Relay</div>
+  </div>
+</div>
+
+<!-- GIFT CODE -->
+<div id="vGift" class="view">
+  <div class="nav">
+    <div class="logo">
+      <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Top arrow: right-pointing, upper area -->
+  <rect x="2" y="5" width="10" height="2.2" rx="1.1" fill="rgba(255,255,255,0.95)"/>
+  <polygon points="11,2.5 15.5,6.1 11,9.7" fill="rgba(255,255,255,0.95)"/>
+  <!-- Bottom arrow: left-pointing, lower area, offset right -->
+  <rect x="8" y="12.8" width="10" height="2.2" rx="1.1" fill="rgba(255,255,255,0.72)"/>
+  <polygon points="9,10.3 4.5,13.9 9,17.5" fill="rgba(255,255,255,0.72)"/>
+</svg>
+    </div>
+    <span class="nav-title">Gift Code</span>
+    <div class="nav-right"><button class="done-btn" id="btnBackGift">Cancel</button></div>
+  </div>
+  <div class="hero">
+    <div class="hero-icon">
+      <svg viewBox="0 0 24 24"><path d="M20 12v10H4V12"/><path d="M22 7H2v5h20V7z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
+    </div>
+    <div class="hero-title">Redeem code</div>
+    <div class="hero-sub">Activate Pro for this vault.</div>
+  </div>
+  <div class="input-wrap">
+    <input class="input" id="giftInput" type="text" placeholder="XXXX-XXXX-XXXX"
+      autocomplete="off" spellcheck="false" autocapitalize="characters"
+      style="font-family:ui-monospace,'SF Mono',monospace;font-size:18px;font-weight:700;letter-spacing:4px;text-align:center;text-transform:uppercase;padding:16px 13px">
+  </div>
+  <button class="btn btn-primary" id="btnRedeemGift">Redeem →</button>
+  <div class="toast" id="toastGift"></div>
+</div>
+
+<!-- DELETE CONFIRM -->
+<div id="vDeleteConfirm" class="view">
+  <div class="nav">
+    <div class="logo">
+      <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Top arrow: right-pointing, upper area -->
+  <rect x="2" y="5" width="10" height="2.2" rx="1.1" fill="rgba(255,255,255,0.95)"/>
+  <polygon points="11,2.5 15.5,6.1 11,9.7" fill="rgba(255,255,255,0.95)"/>
+  <!-- Bottom arrow: left-pointing, lower area, offset right -->
+  <rect x="8" y="12.8" width="10" height="2.2" rx="1.1" fill="rgba(255,255,255,0.72)"/>
+  <polygon points="9,10.3 4.5,13.9 9,17.5" fill="rgba(255,255,255,0.72)"/>
+</svg>
+    </div>
+    <span class="nav-title">Delete Account</span>
+    <div class="nav-right"><button class="done-btn" id="btnDeleteCancel">Cancel</button></div>
+  </div>
+  <div class="hero">
+    <div class="hero-icon danger">
+      <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+    </div>
+    <div class="hero-title">Delete your account?</div>
+    <div class="hero-sub">Your encrypted vault will be permanently removed from our servers.</div>
+  </div>
+  <div class="notice amber">
+    <b>This cannot be undone.</b> Your local bookmarks stay safe — only the cloud vault is deleted. If you have Pro, <a href="https://billing.stripe.com" target="_blank" rel="noopener noreferrer">cancel Stripe first</a>.
+  </div>
+  <button class="btn btn-danger" id="btnDeleteConfirm">Yes, delete my account</button>
+  <button class="btn btn-secondary" id="btnDeleteCancel2">Keep my account</button>
+  <div class="toast" id="toastDelete"></div>
+</div>
+
+<!-- DELETED -->
+<div id="vDeleted" class="view" style="text-align:center;padding-top:44px">
+  <div class="hero-icon success" style="margin:0 auto 16px">
+    <svg viewBox="0 0 24 24" style="stroke-width:2.2"><polyline points="20 6 9 17 4 12"/></svg>
+  </div>
+    <div style="font-size:20px;font-weight:700;letter-spacing:0;margin-bottom:8px">Account deleted</div>
+  <div style="font-size:14px;color:var(--t-2);line-height:1.6">Your vault has been removed from our servers.<br>Your local bookmarks are untouched.</div>
+</div>
+
+<!-- SYNC HISTORY -->
+<div id="vHistory" class="view">
+  <div class="nav">
+    <div class="logo">
+      <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Top arrow: right-pointing, upper area -->
+  <rect x="2" y="5" width="10" height="2.2" rx="1.1" fill="rgba(255,255,255,0.95)"/>
+  <polygon points="11,2.5 15.5,6.1 11,9.7" fill="rgba(255,255,255,0.95)"/>
+  <!-- Bottom arrow: left-pointing, lower area, offset right -->
+  <rect x="8" y="12.8" width="10" height="2.2" rx="1.1" fill="rgba(255,255,255,0.72)"/>
+  <polygon points="9,10.3 4.5,13.9 9,17.5" fill="rgba(255,255,255,0.72)"/>
+</svg>
+    </div>
+    <span class="nav-title">Sync History</span>
+    <div class="nav-right"><button class="done-btn" id="btnBackHistory">Done</button></div>
+  </div>
+  <div class="section-header">Last 30 days</div>
+  <div class="list-section" id="historyList" style="overflow:hidden"></div>
+  <div class="section-footer">Tap any snapshot to restore it. Your current bookmarks are merged — nothing is lost.</div>
+</div>
+
+<!-- RESTORE CONFIRM -->
+<div id="vRestoreConfirm" class="view">
+  <div class="nav">
+    <div class="logo">
+      <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Top arrow: right-pointing, upper area -->
+  <rect x="2" y="5" width="10" height="2.2" rx="1.1" fill="rgba(255,255,255,0.95)"/>
+  <polygon points="11,2.5 15.5,6.1 11,9.7" fill="rgba(255,255,255,0.95)"/>
+  <!-- Bottom arrow: left-pointing, lower area, offset right -->
+  <rect x="8" y="12.8" width="10" height="2.2" rx="1.1" fill="rgba(255,255,255,0.72)"/>
+  <polygon points="9,10.3 4.5,13.9 9,17.5" fill="rgba(255,255,255,0.72)"/>
+</svg>
+    </div>
+    <span class="nav-title">Restore Snapshot</span>
+    <div class="nav-right"><button class="done-btn" id="btnRestoreCancel">Cancel</button></div>
+  </div>
+  <div class="hero">
+    <div class="hero-icon">
+      <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/></svg>
+    </div>
+    <div class="hero-title">Restore this snapshot?</div>
+    <div class="hero-sub">Missing bookmarks will be added back. Nothing gets deleted.</div>
+  </div>
+  <div class="notice info">
+    <b>Completely safe.</b> Restore is additive only — your current bookmarks are kept and missing ones are merged back in.
+  </div>
+  <button class="btn btn-primary" id="btnRestoreConfirm">Restore snapshot →</button>
+  <button class="btn btn-secondary" id="btnRestoreCancel2">Cancel</button>
+  <div class="toast" id="toastRestore"></div>
+</div>
+
+<script src="config.js"></script>
+<script src="crypto.js"></script>
+<script src="sync.js"></script>
+<script src="popup.js"></script>
+</body>
+</html>

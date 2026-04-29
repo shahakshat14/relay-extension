@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Relay Pro Activated</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #F7F4EE;
+    --paper: #FFFDF8;
+    --ink: #242019;
+    --muted: #6F6659;
+    --line: rgba(38,34,27,0.12);
+    --brand: #0C6E6E;
+    --brand-soft: #E5F2EE;
+    --shadow: 0 22px 60px rgba(38,34,27,0.12);
+  }
+  body {
+    min-height: 100vh; display: grid; place-items: center; padding: 28px;
+    background: radial-gradient(circle at 18% 10%, rgba(24,167,160,0.13), transparent 30%), linear-gradient(135deg, #FBF7EF, var(--bg) 52%, #E9E1D3);
+    color: var(--ink);
+    font-family: "Avenir Next", "SF Pro Text", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .card {
+    width: min(460px, 100%);
+    background: rgba(255,253,248,0.86);
+    border: 1px solid var(--line);
+    border-radius: 28px;
+    padding: 34px;
+    box-shadow: var(--shadow);
+    text-align: center;
+  }
+  .logo {
+    width: 66px; height: 66px; border-radius: 18px; margin: 0 auto 22px;
+    background: linear-gradient(145deg, #18A7A0 0%, #0C6E6E 58%, #083F44 100%);
+    display: grid; place-items: center; color: #FFFDF8; font-size: 34px; font-weight: 900;
+  }
+  h1 { font-size: 30px; line-height: 1.08; letter-spacing: -0.04em; margin-bottom: 10px; }
+  p { color: var(--muted); line-height: 1.6; margin-bottom: 22px; }
+  .steps { text-align: left; background: var(--paper); border: 1px solid var(--line); border-radius: 18px; padding: 18px; display: grid; gap: 12px; margin-bottom: 24px; }
+  .step { display: flex; gap: 12px; align-items: flex-start; font-size: 14px; line-height: 1.45; }
+  .num { width: 24px; height: 24px; border-radius: 50%; background: var(--brand-soft); color: var(--brand); display: grid; place-items: center; font-size: 12px; font-weight: 850; flex: 0 0 auto; }
+  .btn {
+    display: inline-flex; justify-content: center; width: 100%;
+    border-radius: 13px; background: var(--brand); color: #FFFDF8;
+    padding: 14px 18px; text-decoration: none; font-weight: 800;
+    box-shadow: 0 14px 30px rgba(12,110,110,0.22);
+  }
+  .note { margin-top: 14px; color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<main class="card">
+  <div class="logo" aria-hidden="true">✓</div>
+  <h1>Relay Pro is active.</h1>
+  <p>Your subscription is ready. Open Relay and sync once so the extension can refresh your Pro plan.</p>
+  <div class="steps">
+    <div class="step"><span class="num">1</span><span>Open Relay in your browser toolbar.</span></div>
+    <div class="step"><span class="num">2</span><span>Sign in with your existing username and password if needed.</span></div>
+    <div class="step"><span class="num">3</span><span>Tap Sync. Pro features will appear automatically.</span></div>
+  </div>
+  <a class="btn" href="https://github.com/trident-cx/relay-extension/releases">Download Relay</a>
+  <div class="note">No email account was created. Your vault remains password-protected.</div>
+</main>
+</body>
+</html>

@@ -1,0 +1,21 @@
+<svg width="1400" height="560" viewBox="0 0 1400 560" xmlns="http://www.w3.org/2000/svg">
+    <defs><linearGradient id="brand" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#18A7A0"/><stop offset=".58" stop-color="#0C6E6E"/><stop offset="1" stop-color="#083F44"/></linearGradient></defs>
+    <rect width="1400" height="560" fill="#FBF7EF"/>
+    <g transform="translate(96 104) scale(0.2109375)">
+    <rect x="56" y="56" width="400" height="400" rx="104" fill="url(#brand)"/>
+    <path d="M128 178H294L252 136H322L404 218L322 300H252L294 258H128V178Z" fill="#FFFDF8"/>
+    <path d="M384 334H218L260 376H190L108 294L190 212H260L218 254H384V334Z" fill="#FFFDF8" fill-opacity=".62"/>
+  </g>
+    <text x="96" y="282" font-family="Avenir Next, Arial" font-size="68" font-weight="800" fill="#242019">Relay</text>
+    <text x="96" y="336" font-family="Avenir Next, Arial" font-size="28" fill="#6F6659">Your bookmarks. Always in reach.</text>
+    <text x="96" y="388" font-family="Avenir Next, Arial" font-size="22" fill="#0C6E6E">No email. No tracking. No readable cloud vault.</text>
+    <rect x="844" y="72" width="390" height="416" rx="28" fill="#FFFDF8" stroke="#D8CFC0"/>
+    <rect x="876" y="106" width="326" height="76" rx="18" fill="#0C6E6E"/>
+    <text x="904" y="140" font-family="Avenir Next, Arial" font-size="20" font-weight="850" fill="#FFFDF8">Relay Pro</text>
+    <text x="904" y="164" font-family="Avenir Next, Arial" font-size="13" fill="#D4F3EF">Auto-sync · restore history</text>
+    <circle cx="1039" cy="262" r="58" fill="#E9F4F1"/>
+    <circle cx="1039" cy="262" r="42" fill="#0C6E6E"/>
+    <path d="M1017 256h38l-12-12h21l25 25-25 25h-21l12-12h-38z" fill="#FFFDF8"/>
+    <text x="1039" y="364" text-anchor="middle" font-family="Avenir Next, Arial" font-size="30" font-weight="850" fill="#242019">Sync</text>
+    <text x="1039" y="402" text-anchor="middle" font-family="Avenir Next, Arial" font-size="17" fill="#6F6659">1,248 bookmarks encrypted</text>
+  </svg>

@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Privacy Policy - Relay</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #F7F4EE;
+    --paper: #FFFDF8;
+    --paper-2: #EFE9DE;
+    --ink: #242019;
+    --muted: #6F6659;
+    --quiet: #8B8173;
+    --line: rgba(38,34,27,0.12);
+    --brand: #0C6E6E;
+    --brand-soft: #E5F2EE;
+    --red: #B63D35;
+    --green: #247A52;
+  }
+  body {
+    background: linear-gradient(135deg, #FBF7EF 0%, var(--bg) 52%, #E9E1D3 100%);
+    color: var(--ink);
+    font-family: "Avenir Next", "SF Pro Text", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  a { color: var(--brand); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .wrap { width: min(940px, calc(100% - 40px)); margin: 0 auto; }
+  .nav { min-height: 74px; display: flex; align-items: center; gap: 12px; }
+  .logo {
+    width: 36px; height: 36px; border-radius: 10px;
+    box-shadow: 0 12px 28px rgba(12,110,110,0.20);
+  }
+  .nav-name { font-size: 17px; font-weight: 750; }
+  .nav-right { margin-left: auto; display: flex; gap: 16px; font-size: 14px; font-weight: 650; }
+  .hero { padding: 62px 0 46px; max-width: 760px; }
+  .eyebrow {
+    display: inline-flex; color: var(--brand); background: rgba(12,110,110,0.09);
+    border: 1px solid rgba(12,110,110,0.16); border-radius: 999px; padding: 7px 12px;
+    font-size: 12px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 22px;
+  }
+  h1 { font-size: clamp(42px, 6vw, 72px); line-height: 0.98; letter-spacing: -0.055em; margin-bottom: 18px; }
+  .hero p { color: var(--muted); font-size: 20px; line-height: 1.55; max-width: 660px; }
+  .updated { color: var(--quiet); font-size: 13px; margin-top: 18px; }
+  .container {
+    background: rgba(255,253,248,0.72);
+    border: 1px solid var(--line);
+    border-radius: 28px;
+    padding: clamp(24px, 5vw, 46px);
+    margin-bottom: 80px;
+    box-shadow: 0 22px 60px rgba(38,34,27,0.10);
+  }
+  .tldr {
+    background: var(--brand-soft); border: 1px solid rgba(12,110,110,0.16);
+    border-radius: 18px; padding: 20px; margin-bottom: 34px;
+  }
+  .tldr-label { font-size: 12px; font-weight: 850; color: var(--brand); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+  .tldr p { color: var(--ink); margin: 0; }
+  h2 { font-size: 25px; line-height: 1.15; letter-spacing: -0.035em; margin: 38px 0 12px; }
+  p { color: var(--muted); margin-bottom: 14px; }
+  ol { margin: 12px 0 16px 20px; color: var(--muted); }
+  li { margin-bottom: 8px; }
+  .data-table {
+    width: 100%; border-collapse: collapse; margin: 16px 0 30px; font-size: 14px;
+    border: 1px solid var(--line); border-radius: 16px; overflow: hidden; background: var(--paper);
+  }
+  .data-table th {
+    background: var(--paper-2); text-align: left; padding: 12px 14px;
+    color: var(--quiet); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .data-table td { padding: 13px 14px; border-top: 1px solid rgba(38,34,27,0.08); color: var(--muted); vertical-align: top; }
+  .data-table strong { color: var(--ink); }
+  .yes { color: var(--red) !important; font-weight: 750; }
+  .no { color: var(--green) !important; font-weight: 750; }
+  .callout {
+    background: #F7F4EE; border: 1px solid var(--line); border-radius: 16px;
+    padding: 16px 18px; color: var(--muted); margin: 20px 0;
+  }
+  .callout strong { color: var(--ink); }
+  footer { border-top: 1px solid var(--line); color: var(--quiet); font-size: 13px; padding: 28px 0; }
+  footer .wrap { display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
+  @media (max-width: 720px) {
+    .wrap { width: calc(100% - 32px); }
+    .nav-right { gap: 10px; font-size: 13px; }
+    .nav-right { display: none; }
+    .hero { padding: 38px 0 34px; }
+    h1 { max-width: 318px; font-size: 31px; letter-spacing: -0.035em; line-height: 1.04; overflow-wrap: break-word; }
+    .hero p { max-width: 318px; font-size: 16px; }
+    .container { padding: 24px; overflow: hidden; }
+    .tldr { overflow-wrap: break-word; }
+    .tldr p { font-size: 14px; line-height: 1.55; }
+    .data-table { display: block; overflow-x: auto; }
+  }
+</style>
+</head>
+<body>
+<nav class="wrap nav">
+  <img class="logo" src="icons/icon128.png" alt="" aria-hidden="true">
+  <span class="nav-name">Relay</span>
+  <div class="nav-right">
+    <a href="https://relayextension.com/pricing/">Pricing</a>
+    <a href="https://github.com/trident-cx/relay-extension/releases">Download</a>
+  </div>
+</nav>
+
+<header class="wrap hero">
+  <div class="eyebrow">Privacy Policy</div>
+  <h1>Built to know as little as possible.</h1>
+  <p>Relay syncs bookmarks by storing an encrypted vault, not a profile about you. Useful, calm, and intentionally low-noise.</p>
+  <div class="updated">Last updated: April 28, 2026</div>
+</header>
+
+<main class="wrap container">
+  <div class="tldr">
+    <div class="tldr-label">The short version</div>
+    <p>Relay does not ask for your name or email, does not use analytics SDKs, and cannot read your bookmarks. Your bookmark vault is encrypted on your device before sync.</p>
+  </div>
+
+  <h2>What we collect</h2>
+  <p>Relay stores the minimum data needed to operate private bookmark sync:</p>
+
+  <table class="data-table">
+    <thead>
+      <tr><th>Data</th><th>What it is</th><th>Readable by Relay?</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Encrypted vault</strong></td>
+        <td>Your bookmarks, encrypted on your device before upload.</td>
+        <td class="no">No</td>
+      </tr>
+      <tr>
+        <td><strong>Vault lookup key</strong></td>
+        <td>A derived identifier used to find your vault without storing your username in plain text.</td>
+        <td class="yes">Operational only</td>
+      </tr>
+      <tr>
+        <td><strong>Browser UUID</strong></td>
+        <td>A random install identifier used for browser limits and abuse prevention.</td>
+        <td class="yes">Yes, random</td>
+      </tr>
+      <tr>
+        <td><strong>Short-lived sync metadata</strong></td>
+        <td>Minimal technical metadata used for rate limits and reliability.</td>
+        <td class="yes">Limited</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>What we do not collect</h2>
+  <p>Relay does not collect, store, or transmit your name, email address, password, browsing history, location data, analytics events, tracking identifiers, or readable bookmark contents.</p>
+
+  <h2>How encryption works</h2>
+  <p>Your bookmarks are encrypted on your device before they leave the browser.</p>
+  <ol>
+    <li>Your password derives the local encryption key.</li>
+    <li>Relay encrypts bookmark data before upload.</li>
+    <li>The server stores only the encrypted result and required operational metadata.</li>
+  </ol>
+  <div class="callout">
+    <strong>In practice:</strong> if someone accessed the database, bookmark contents would still be unreadable without the user password.
+  </div>
+
+  <h2>Third-party services</h2>
+  <p><strong>Supabase</strong> stores encrypted vault data and operational metadata for sync.</p>
+  <p><strong>Stripe</strong> handles Relay Pro payments. Relay does not receive card details.</p>
+  <p>Relay does not include advertising networks, tracking pixels, analytics SDKs, or remote scripts.</p>
+
+  <h2>Data retention</h2>
+  <p>Your encrypted vault is retained until you delete your account. Pro sync history is retained for a limited restore window, then expires. Account deletion removes the server-side vault and related sync records.</p>
+
+  <h2>Your rights</h2>
+  <p>You can delete your account at any time from Relay settings. Because Relay does not require email or name collection, support requests may require you to provide non-sensitive context such as your Relay version and visible error message.</p>
+
+  <h2>Source visibility</h2>
+  <p>Relay's public repository is visible for transparency and review at <a href="https://github.com/trident-cx/relay-extension" target="_blank" rel="noopener noreferrer">github.com/trident-cx/relay-extension</a>. Usage, redistribution, modification, and commercial deployment are governed by the proprietary license.</p>
+
+  <h2>Changes to this policy</h2>
+  <p>If this policy changes materially, we will update the date on this page.</p>
+
+  <h2>Contact</h2>
+  <p>Questions or concerns? Open an issue at <a href="https://github.com/trident-cx/relay-extension/issues" target="_blank" rel="noopener noreferrer">github.com/trident-cx/relay-extension/issues</a>.</p>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 Relay</span>
+    <span><a href="https://relayextension.com/pricing/">Pricing</a> · <a href="https://github.com/trident-cx/relay-extension">Source-visible repository</a></span>
+  </div>
+</footer>
+</body>
+</html>

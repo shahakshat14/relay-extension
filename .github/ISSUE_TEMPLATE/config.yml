@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Install Relay
+    url: https://github.com/tridentcx/relay-extension/blob/main/INSTALL.md
+    about: Download, install, update, and first-sync instructions.
+  - name: Versioned downloads
+    url: https://github.com/tridentcx/relay-extension/releases
+    about: Download a stable Relay extension build by version number.
+  - name: Privacy policy
+    url: https://relayextension.com/privacy
+    about: Read Relay privacy information.

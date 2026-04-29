@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Relay Pro - Private Bookmark Sync</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #F7F4EE;
+    --paper: #FFFDF8;
+    --paper-2: #EFE9DE;
+    --ink: #242019;
+    --muted: #6F6659;
+    --quiet: #8B8173;
+    --line: rgba(38,34,27,0.12);
+    --line-strong: rgba(38,34,27,0.20);
+    --brand: #0C6E6E;
+    --brand-2: #084F4F;
+    --brand-soft: #E5F2EE;
+    --green: #247A52;
+    --amber: #A65F18;
+    --shadow: 0 22px 60px rgba(38,34,27,0.12);
+  }
+
+  html { scroll-behavior: smooth; }
+  body {
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at 12% 4%, rgba(24,167,160,0.12), transparent 28%),
+      linear-gradient(135deg, #FBF7EF 0%, var(--bg) 48%, #E9E1D3 100%);
+    color: var(--ink);
+    font-family: "Avenir Next", "SF Pro Text", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  a { color: var(--brand); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  .wrap { width: min(1120px, calc(100% - 40px)); margin: 0 auto; }
+  .nav {
+    min-height: 76px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .logo {
+    width: 36px; height: 36px; border-radius: 10px;
+    box-shadow: 0 12px 28px rgba(12,110,110,0.20);
+  }
+  .nav-name { font-size: 17px; font-weight: 750; }
+  .nav-links { margin-left: auto; display: flex; align-items: center; gap: 18px; font-size: 14px; font-weight: 650; }
+
+  .hero {
+    display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 54px; align-items: center;
+    padding: 72px 0 56px;
+  }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    color: var(--brand); background: rgba(12,110,110,0.09);
+    border: 1px solid rgba(12,110,110,0.16);
+    border-radius: 999px; padding: 7px 12px;
+    font-size: 12px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+    margin-bottom: 22px;
+  }
+  .hero h1 {
+    max-width: 680px;
+    font-size: clamp(44px, 6vw, 76px);
+    line-height: 0.96; letter-spacing: -0.055em; font-weight: 850;
+    margin-bottom: 24px;
+  }
+  .hero p {
+    max-width: 600px; color: var(--muted);
+    font-size: 20px; line-height: 1.55; margin-bottom: 30px;
+  }
+  .actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .btn {
+    border: 0; border-radius: 12px; padding: 14px 18px;
+    font-family: inherit; font-size: 15px; font-weight: 750;
+    cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    transition: transform .18s, box-shadow .18s, background .18s, border-color .18s;
+  }
+  .btn:hover { transform: translateY(-1px); text-decoration: none; }
+  .btn.primary { background: var(--brand); color: #FFFDF8; box-shadow: 0 14px 30px rgba(12,110,110,0.22); }
+  .btn.primary:hover { background: var(--brand-2); box-shadow: 0 18px 38px rgba(12,110,110,0.28); }
+  .btn.secondary { background: rgba(255,253,248,0.62); color: var(--ink); border: 1px solid var(--line); }
+  .trust-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; color: var(--quiet); font-size: 13px; }
+  .trust-pill { border: 1px solid var(--line); border-radius: 999px; padding: 7px 10px; background: rgba(255,253,248,0.48); }
+
+  .product-card {
+    background: rgba(255,253,248,0.78);
+    border: 1px solid var(--line);
+    border-radius: 28px;
+    padding: 20px;
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(18px);
+    min-width: 0;
+  }
+  .mock {
+    background: var(--paper); border: 1px solid #D8CFC0; border-radius: 22px; padding: 20px;
+    min-width: 0; overflow: hidden;
+  }
+  .mock-top { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }
+  .mock-mark { width: 32px; height: 32px; border-radius: 9px; background: linear-gradient(145deg, #18A7A0, #0C6E6E); }
+  .mock-name { font-size: 18px; font-weight: 800; }
+  .mock-badge { margin-left: auto; color: var(--brand); background: var(--brand-soft); border-radius: 999px; padding: 6px 14px; font-size: 11px; font-weight: 800; }
+  .sync-panel { background: #F7F4EE; border: 1px solid #DDD2C4; border-radius: 16px; padding: 34px 20px; text-align: center; margin-bottom: 14px; }
+  .sync-orb { width: 86px; height: 86px; border-radius: 50%; background: var(--brand-soft); margin: 0 auto 16px; display: grid; place-items: center; color: var(--brand); font-size: 40px; }
+  .sync-panel h3 { font-size: 28px; line-height: 1; margin-bottom: 8px; }
+  .sync-panel p, .mock-row p { color: var(--muted); font-size: 14px; }
+  .mock-row { border: 1px solid #DDD2C4; border-radius: 13px; padding: 16px; display: flex; justify-content: space-between; align-items: center; margin-top: 12px; }
+  .mock-row strong { display: block; margin-bottom: 3px; }
+
+  .plans { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; padding: 24px 0 70px; }
+  .plan {
+    background: rgba(255,253,248,0.82); border: 1px solid var(--line);
+    border-radius: 24px; padding: 28px; box-shadow: 0 10px 32px rgba(38,34,27,0.08);
+  }
+  .plan.featured { border-color: rgba(12,110,110,0.34); box-shadow: 0 24px 60px rgba(12,110,110,0.14); position: relative; overflow: hidden; }
+  .plan.featured::before { content: ""; position: absolute; inset: 0 0 auto; height: 4px; background: linear-gradient(90deg, #18A7A0, #0C6E6E, #083F44); }
+  .plan-tag {
+    display: inline-flex; border-radius: 999px; background: var(--brand); color: #FFFDF8;
+    padding: 5px 10px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 16px;
+  }
+  .plan-name { font-size: 26px; font-weight: 850; margin-bottom: 8px; }
+  .plan-desc { color: var(--muted); line-height: 1.55; margin-bottom: 24px; }
+  .price { display: flex; align-items: baseline; gap: 6px; margin-bottom: 4px; }
+  .price strong { font-size: 48px; letter-spacing: -0.045em; }
+  .price span, .price-note { color: var(--muted); }
+  .features { list-style: none; display: grid; gap: 12px; margin: 26px 0; }
+  .features li { display: flex; gap: 10px; align-items: flex-start; color: var(--ink); font-size: 14px; line-height: 1.35; }
+  .features .chk {
+    width: 20px; height: 20px; border-radius: 50%; flex: 0 0 auto;
+    display: grid; place-items: center; background: var(--brand-soft); color: var(--brand); font-weight: 850; font-size: 11px;
+  }
+  .features li.dim { color: var(--quiet); }
+  .features li.dim .chk { background: rgba(38,34,27,0.06); color: var(--quiet); }
+
+  .checkout-section { display: none; padding: 0 0 72px; }
+  .checkout-section.visible { display: block; animation: rise .22s ease; }
+  @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  .checkout-card {
+    width: min(520px, 100%); margin: 0 auto; background: var(--paper);
+    border: 1px solid var(--line); border-radius: 22px; padding: 26px; box-shadow: var(--shadow);
+  }
+  .checkout-title { font-size: 24px; font-weight: 850; margin-bottom: 8px; }
+  .checkout-sub, .checkout-note { color: var(--muted); line-height: 1.55; }
+  .checkout-note { font-size: 13px; text-align: center; margin-top: 12px; }
+  .status-msg { display: none; margin: 16px 0 12px; padding: 12px 14px; border-radius: 12px; font-size: 14px; line-height: 1.45; }
+  .status-msg.ok { display: block; background: var(--brand-soft); color: var(--brand); border: 1px solid rgba(12,110,110,0.18); }
+  .status-msg.err { display: block; background: #F8E9E5; color: #B63D35; border: 1px solid #E5BFB8; }
+
+  .section-title { text-align: center; max-width: 660px; margin: 0 auto 28px; }
+  .section-title h2 { font-size: 36px; letter-spacing: -0.04em; margin-bottom: 10px; }
+  .section-title p { color: var(--muted); line-height: 1.6; }
+  .faq { padding: 0 0 84px; }
+  .faq-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  .faq-item { background: rgba(255,253,248,0.68); border: 1px solid var(--line); border-radius: 18px; padding: 20px; }
+  .faq-q { font-weight: 800; margin-bottom: 8px; }
+  .faq-a { color: var(--muted); line-height: 1.6; font-size: 14px; }
+
+  footer { border-top: 1px solid var(--line); padding: 28px 0; color: var(--quiet); font-size: 13px; }
+  footer .wrap { display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
+
+  @media (max-width: 860px) {
+    .hero, .plans, .faq-grid { grid-template-columns: 1fr; }
+    .hero { padding-top: 42px; }
+    .nav-links { gap: 12px; font-size: 13px; }
+  }
+
+  @media (max-width: 520px) {
+    .wrap { width: calc(100% - 32px); }
+    .nav-links a:first-child { display: none; }
+    .hero { padding: 34px 0 42px; gap: 28px; }
+    .hero h1 { max-width: 318px; font-size: 31px; letter-spacing: -0.035em; line-height: 1.04; overflow-wrap: break-word; }
+    .hero p { max-width: 318px; font-size: 16px; }
+    .actions { display: grid; grid-template-columns: 1fr; }
+    .btn { width: 100%; }
+    .product-card { width: 100%; max-width: 100%; padding: 12px; border-radius: 22px; overflow: hidden; }
+    .mock { padding: 14px; border-radius: 18px; }
+    .sync-panel { padding: 28px 14px; }
+    .sync-orb { width: 72px; height: 72px; }
+    .mock-row { align-items: flex-start; gap: 12px; }
+    .mock-row > span { flex-shrink: 0; }
+    .trust-row { display: grid; grid-template-columns: 1fr; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<nav class="wrap nav">
+  <img class="logo" src="../icons/icon128.png" alt="" aria-hidden="true">
+  <span class="nav-name">Relay</span>
+  <div class="nav-links">
+    <a href="https://relayextension.com/privacy">Privacy</a>
+    <a href="https://github.com/trident-cx/relay-extension/releases">Download</a>
+  </div>
+</nav>
+
+<main>
+  <section class="wrap hero">
+    <div>
+      <div class="eyebrow">Relay Pro</div>
+      <h1>Your bookmarks. Always in reach.</h1>
+      <p>Relay keeps your bookmark vault synced across browsers without email accounts, tracking pixels, or a readable cloud vault.</p>
+      <div class="actions">
+        <button class="btn primary" id="btnUpgrade">Upgrade to Pro - $18/year</button>
+        <a class="btn secondary" href="https://github.com/trident-cx/relay-extension/releases">Download Relay</a>
+      </div>
+      <div class="trust-row" aria-label="Privacy highlights">
+        <span class="trust-pill">No email required</span>
+        <span class="trust-pill">End-to-end encrypted</span>
+        <span class="trust-pill">No analytics SDK</span>
+      </div>
+    </div>
+
+    <div class="product-card" aria-label="Relay product preview">
+      <div class="mock">
+        <div class="mock-top">
+          <div class="mock-mark"></div>
+          <div class="mock-name">Relay</div>
+          <div class="mock-badge">PRO</div>
+        </div>
+        <div class="sync-panel">
+          <div class="sync-orb">→</div>
+          <h3>Synced</h3>
+          <p>1,248 bookmarks encrypted</p>
+        </div>
+        <div class="mock-row">
+          <div><strong>Auto-sync</strong><p>Syncs on every change</p></div>
+          <span style="color:var(--brand);font-weight:800">On</span>
+        </div>
+        <div class="mock-row">
+          <div><strong>Sync history</strong><p>30 days of safe restores</p></div>
+          <span style="color:var(--brand);font-weight:800">Ready</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap plans" id="plans">
+    <article class="plan">
+      <div class="plan-name">Free</div>
+      <div class="plan-desc">A private starter vault for light bookmark syncing.</div>
+      <div class="price"><strong>$0</strong></div>
+      <div class="price-note">Forever free</div>
+      <ul class="features">
+        <li><span class="chk">✓</span>Sync across 2 browsers</li>
+        <li><span class="chk">✓</span>Up to 500 bookmarks</li>
+        <li><span class="chk">✓</span>Manual sync</li>
+        <li><span class="chk">✓</span>End-to-end encrypted</li>
+        <li class="dim"><span class="chk">-</span>Auto-sync</li>
+        <li class="dim"><span class="chk">-</span>30-day restore history</li>
+      </ul>
+      <button class="btn secondary" id="btnCurrent" style="width:100%">Current plan</button>
+    </article>
+
+    <article class="plan featured">
+      <div class="plan-tag">Best for daily use</div>
+      <div class="plan-name">Pro</div>
+      <div class="plan-desc">For people who depend on bookmarks across work, research, and multiple browsers.</div>
+      <div class="price"><strong>$18</strong><span>/year</span></div>
+      <div class="price-note">Equivalent to $1.50/month</div>
+      <ul class="features">
+        <li><span class="chk">✓</span>Unlimited browsers</li>
+        <li><span class="chk">✓</span>Unlimited bookmarks</li>
+        <li><span class="chk">✓</span>Auto-sync on bookmark changes</li>
+        <li><span class="chk">✓</span>30-day additive restore history</li>
+        <li><span class="chk">✓</span>Priority support</li>
+        <li><span class="chk">✓</span>End-to-end encrypted</li>
+      </ul>
+      <button class="btn primary" id="btnUpgradeCard" style="width:100%">Upgrade from Relay</button>
+    </article>
+  </section>
+
+  <section class="wrap checkout-section" id="checkoutSection">
+    <div class="checkout-card">
+      <div class="checkout-title">Upgrade from the extension</div>
+      <div class="checkout-sub">Open Relay and choose Upgrade so Pro attaches to your encrypted vault without asking for an email address here.</div>
+      <div class="status-msg" id="statusMsg"></div>
+      <button class="btn primary" id="btnCheckout" style="width:100%;margin-top:16px">Show me what to do</button>
+      <div class="checkout-note">Payments are handled by Stripe. Relay never receives card details.</div>
+    </div>
+  </section>
+
+  <section class="wrap faq">
+    <div class="section-title">
+      <h2>Built for trust, not attention.</h2>
+      <p>Relay is deliberately small: a private vault, a sync button, and clear controls when something needs your attention.</p>
+    </div>
+    <div class="faq-grid">
+      <div class="faq-item">
+        <div class="faq-q">Can Relay read my bookmarks?</div>
+        <div class="faq-a">No. Bookmarks are encrypted on your device before sync. The server stores an unreadable vault.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">What happens if I cancel?</div>
+        <div class="faq-a">You return to Free. Nothing is deleted, but Pro-only limits and features stop applying.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">Why upgrade from the extension?</div>
+        <div class="faq-a">Relay avoids email accounts. Starting from the extension lets Pro attach to the correct vault cleanly.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">What is additive restore?</div>
+        <div class="faq-a">History restore brings missing bookmarks back without deleting bookmarks that currently exist.</div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 Relay</span>
+    <span><a href="https://relayextension.com/privacy">Privacy Policy</a> · <a href="https://github.com/trident-cx/relay-extension">Source-visible repository</a></span>
+  </div>
+</footer>
+
+<script>
+function showCheckout() {
+  document.getElementById('checkoutSection').classList.add('visible');
+  document.getElementById('checkoutSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  setTimeout(() => document.getElementById('btnCheckout').focus(), 320);
+}
+
+function setStatus(msg, type) {
+  const el = document.getElementById('statusMsg');
+  el.textContent = msg;
+  el.className = `status-msg ${type}`;
+}
+
+function startCheckout() {
+  setStatus('Open Relay, then tap Upgrade on the main screen or Security screen. The extension will continue from there.', 'ok');
+}
+
+document.getElementById('btnUpgrade').addEventListener('click', showCheckout);
+document.getElementById('btnUpgradeCard').addEventListener('click', showCheckout);
+document.getElementById('btnCurrent').addEventListener('click', () => {
+  document.getElementById('checkoutSection').classList.remove('visible');
+});
+document.getElementById('btnCheckout').addEventListener('click', startCheckout);
+</script>
+</body>
+</html>

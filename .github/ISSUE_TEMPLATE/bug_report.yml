@@ -1,0 +1,52 @@
+name: Bug report
+description: Report a Relay problem without sharing private account data.
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Relay. Please do not include passwords, vault data, access tokens, browser profile files, or private backend identifiers.
+  - type: input
+    id: version
+    attributes:
+      label: Relay version
+      description: Open Relay settings and copy the version shown at the bottom.
+      placeholder: "v4.15.6"
+    validations:
+      required: true
+  - type: dropdown
+    id: browser
+    attributes:
+      label: Browser
+      options:
+        - Chrome
+        - Microsoft Edge
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe the visible behavior and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Keep this focused on UI steps. Do not paste secrets or private vault contents.
+      placeholder: |
+        1. Open Relay
+        2. Click Sync Now
+        3. See ...
+    validations:
+      required: true
+  - type: textarea
+    id: safe_logs
+    attributes:
+      label: Safe diagnostics
+      description: Share only non-sensitive error text or screenshots with account details removed.
+    validations:
+      required: false

@@ -1,0 +1,40 @@
+Relay Proprietary Source-Available License
+
+Copyright (c) 2026 Akshat Shah. All rights reserved.
+
+This repository is made publicly visible for review, transparency, and
+evaluation purposes only. No license or other right is granted to use,
+copy, modify, merge, publish, distribute, sublicense, sell, host, or create
+derivative works from any part of this software or its documentation except
+with prior written permission from the copyright holder.
+
+Permitted without separate written permission:
+
+1. Viewing this repository on GitHub or another approved source host.
+2. Cloning or downloading the repository solely for internal review,
+   evaluation, or security auditing.
+3. Quoting short excerpts of the source code or documentation for commentary,
+   review, or discussion, subject to applicable law.
+
+Not permitted without prior written permission:
+
+1. Running this software for commercial or production purposes.
+2. Repackaging, relicensing, redistributing, or reselling this software.
+3. Offering hosted, managed, white-label, or competing services derived from
+   this software.
+4. Modifying the software and using the modified version beyond internal
+   evaluation.
+5. Using the Relay name, branding, icons, screenshots, or marketing assets.
+
+For commercial licensing, partnership discussions, or other permission
+requests, contact the repository owner through the official GitHub repository:
+https://github.com/trident-cx/relay-extension
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, TITLE, NON-INFRINGEMENT, OR THAT THE
+SOFTWARE WILL BE ERROR-FREE OR AVAILABLE WITHOUT INTERRUPTION. IN NO EVENT
+SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY CLAIM, DAMAGES,
+OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE,
+ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OF OR
+OTHER DEALINGS IN THE SOFTWARE.
