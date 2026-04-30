@@ -208,10 +208,32 @@ const clrT=(id)=>{const e=q(id);if(e)e.className='toast';};
 const toast=(id,msg,t)=>{
   const e=q(id);if(!e)return;
   e.textContent=msg;e.className=`toast ${t}`;
-  // Auto-dismiss after 5s for errors, 3s for success
+  e.setAttribute('role', t==='err' ? 'alert' : 'status');
+  e.setAttribute('aria-live', t==='err' ? 'assertive' : 'polite');
   if(e._dismissTimer)clearTimeout(e._dismissTimer);
-  e._dismissTimer=setTimeout(()=>{e.className='toast';},t==='err'?5000:3000);
+  // Errors stay visible until the next user action clears them.
+  if(t!=='err') e._dismissTimer=setTimeout(()=>{e.className='toast';},3000);
 };
+function markError(ids){
+  (Array.isArray(ids)?ids:[ids]).forEach(id=>{
+    const el=q(id);
+    if(!el)return;
+    el.classList.add('error');
+    el.setAttribute('aria-invalid','true');
+  });
+}
+function clearErrors(ids){
+  (Array.isArray(ids)?ids:[ids]).forEach(id=>{
+    const el=q(id);
+    if(!el)return;
+    el.classList.remove('error');
+    el.removeAttribute('aria-invalid');
+  });
+}
+function showError(toastId, msg, fieldIds=[]){
+  toast(toastId, msg || 'Something went wrong. Try again.', 'err');
+  if(fieldIds.length)markError(fieldIds);
+}
 function showSyncProof(message){
   const e=q('syncProof');
   if(!e)return;
@@ -234,6 +256,7 @@ function age(iso){
 // Plan UI helpers
 // ─────────────────────────────────────────────────────────────────────
 const PRICING_URL='https://relayextension.com/pricing/';
+const RELAY_HOME_URL='https://relayextension.com';
 const RELEASE_API_URL='https://api.github.com/repos/trident-cx/relay-extension/releases/latest';
 const RELEASES_URL='https://github.com/trident-cx/relay-extension/releases';
 const INSTALL_GUIDE_URL='https://github.com/trident-cx/relay-extension/blob/main/docs/INSTALL.md';
@@ -259,6 +282,84 @@ function trustedExternalUrl(url) {
 function openTrustedUrl(url, fallback=RELEASES_URL) {
   const safeUrl = trustedExternalUrl(url) ? url : fallback;
   chrome.tabs.create({url:safeUrl});
+}
+
+function recoveryKitText(username=getU(), password=getP()) {
+  return [
+    'Relay Recovery Kit',
+    '',
+    `Username: ${username ? `@${username}` : ''}`,
+    `Password: ${password || ''}`,
+    `Install: ${RELAY_HOME_URL}`,
+    '',
+    'Keep this private. Anyone with this username and password can unlock the encrypted bookmark vault.',
+    'Relay cannot reset this password because bookmark data is encrypted before upload.',
+  ].join('\n');
+}
+
+function renderRecoveryKit() {
+  const username = getU();
+  const password = getP();
+  const uEl = q('kitUsername');
+  const pEl = q('kitPassword');
+  if (uEl) uEl.textContent = username ? `@${username}` : 'Sign in again';
+  if (pEl) pEl.textContent = password || 'Sign in again';
+}
+
+function downloadTextFile(filename, text) {
+  const blob = new Blob([text], {type:'text/plain;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+
+async function copyText(text, toastId, okMessage='Copied.') {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast(toastId, okMessage, 'ok');
+  } catch {
+    toast(toastId, 'Clipboard blocked. Try download instead.', 'err');
+  }
+}
+
+function showRecoveryKit() {
+  if (!getU() || !getP()) {
+    show('vSignIn');
+    return;
+  }
+  renderRecoveryKit();
+  show('vRecovery');
+}
+
+function renderAddBrowser() {
+  const username = getU();
+  const uEl = q('addBrowserUsername');
+  if (uEl) uEl.textContent = `Use ${username ? `@${username}` : 'your username'} and your saved password.`;
+}
+
+function addBrowserText() {
+  const username = getU();
+  return [
+    'Add Relay to another browser',
+    '',
+    `1. Open ${RELAY_HOME_URL} on the other Chromium-based browser.`,
+    '2. Install Relay.',
+    `3. Sign in with ${username ? `@${username}` : 'your Relay username'} and your saved password.`,
+    '4. Click Sync once. Relay will compare bookmarks and bring the browser current.',
+    '',
+    'Relay does not transmit your password. Use your password manager or Recovery Kit.',
+  ].join('\n');
+}
+
+function showAddBrowser() {
+  renderAddBrowser();
+  show('vAddBrowser');
 }
 
 const ORB_ICONS = {
@@ -505,7 +606,7 @@ async function runSync(username, password){
     if(err.message.startsWith('BROWSER_LIMIT:')){
       setOrbIcon('bolt');
       setOrbText('Browser limit reached', 'Free syncs 2 browsers');
-      toast('toastMain','Free syncs 2 browsers. Pro keeps every browser in sync.','err');
+      showError('toastMain','Free syncs 2 browsers. Pro keeps every browser in sync.');
       // Show alert card with upgrade CTA
       const al=q('upgradeAlert');
       if(al){
@@ -545,7 +646,7 @@ async function runSync(username, password){
 
     setOrbIcon('alert');
     setOrbText('Sync failed');
-    toast('toastMain',err.message,'err');
+    showError('toastMain',err.message || 'Sync failed. Try again.');
     showSyncProof('');
     if(err.message.includes('password'))clearSession();
     setTimeout(()=>{
@@ -713,15 +814,22 @@ q('siEye').addEventListener('click',()=>eye('siPassword','siEye'));
 q('siUsername').addEventListener('input',e=>{
   const cleaned=e.target.value.toLowerCase().trim();
   if(e.target.value!==cleaned)e.target.value=cleaned;
+  clearErrors(['siUsername','siPassword']);
+  clrT('toastSignIn');
 });
 q('siUsername').addEventListener('keydown',e=>{if(e.key==='Enter')q('siPassword').focus();});
+q('siPassword').addEventListener('input',()=>{
+  clearErrors(['siUsername','siPassword']);
+  clrT('toastSignIn');
+});
 q('siPassword').addEventListener('keydown',e=>{if(e.key==='Enter')q('btnSignIn').click();});
 
 q('btnSignIn').addEventListener('click',async()=>{
   const username=q('siUsername').value.trim().toLowerCase();
   const password=q('siPassword').value.trim();
-  if(!username){toast('toastSignIn','Enter your username.','err');return;}
-  if(!password){toast('toastSignIn','Enter your password.','err');return;}
+  clearErrors(['siUsername','siPassword']);
+  if(!username){showError('toastSignIn','Enter your username.',['siUsername']);return;}
+  if(!password){showError('toastSignIn','Enter your password.',['siPassword']);return;}
 
   const btn=q('btnSignIn');
   btn.disabled=true;
@@ -779,7 +887,13 @@ q('btnSignIn').addEventListener('click',async()=>{
     await goMain(true);
 
   }catch(err){
-    toast('toastSignIn',err.message,'err');
+    const msg = err?.message || 'Sign in failed. Try again.';
+    const fields = msg.toLowerCase().includes('password')
+      ? ['siPassword']
+      : msg.toLowerCase().includes('username') || msg.toLowerCase().includes('account')
+        ? ['siUsername']
+        : ['siUsername','siPassword'];
+    showError('toastSignIn',msg,fields);
     await clearSession();
     // Clear password but keep username so they can retry
     q('siPassword').value='';
@@ -808,6 +922,8 @@ q('btnBackSetup').addEventListener('click',()=>show('vSignIn'));
 q('unameInput').addEventListener('input',()=>{
   const v=q('unameInput').value.toLowerCase().replace(/[^a-z0-9\-_]/g,'');
   if(q('unameInput').value!==v)q('unameInput').value=v;
+  clearErrors(['unameInput']);
+  clrT('toastSetup');
   clearTimeout(uTimer);uTimer=setTimeout(()=>checkUsername(v),480);
   updateCreate();
 });
@@ -819,6 +935,8 @@ q('passConfirmEye').addEventListener('click',()=>eye('passConfirm','passConfirmE
 q('passInput').addEventListener('keydown',e=>{if(e.key==='Enter')q('passConfirm').focus();});
 q('passInput').addEventListener('input',()=>{
   const p=q('passInput').value;
+  clearErrors(['passInput','passConfirm']);
+  clrT('toastSetup');
   q('genText').textContent=p||'…';
   renderStrength(p);
   updateCreate();
@@ -827,6 +945,8 @@ q('passInput').addEventListener('input',()=>{
 
 // FIX [C1]: Password confirm + live match check
 q('passConfirm').addEventListener('input',()=>{
+  clearErrors(['passInput','passConfirm']);
+  clrT('toastSetup');
   checkPassMatch();updateCreate();
 });
 q('passConfirm').addEventListener('keydown',e=>{if(e.key==='Enter')q('btnCreate').click();});
@@ -873,9 +993,10 @@ q('btnCreate').addEventListener('click',async()=>{
   const password=q('passInput').value;
   const confirm=q('passConfirm').value;
 
-  if(!uValid){toast('toastSetup','Choose an available username.','err');return;}
-  if(pwStrength(password)<3){toast('toastSetup','Password is too weak — aim for Strong.','err');return;}
-  if(password!==confirm){toast('toastSetup','Passwords don\'t match.','err');return;}
+  clearErrors(['unameInput','passInput','passConfirm']);
+  if(!uValid){showError('toastSetup','Choose an available username.',['unameInput']);return;}
+  if(pwStrength(password)<3){showError('toastSetup','Password is too weak - aim for Strong.',['passInput']);return;}
+  if(password!==confirm){showError('toastSetup','Passwords do not match.',['passInput','passConfirm']);return;}
 
   q('btnCreate').disabled=true;
   q('btnCreate').innerHTML='<span class="sp"></span> Creating…';
@@ -884,7 +1005,7 @@ q('btnCreate').addEventListener('click',async()=>{
     await ensureRelayModules();
     const avail=await _relay.checkUsernameAvailable(username);
     if(!avail){
-      toast('toastSetup','That username was just taken. Try another.','err');
+      showError('toastSetup','That username was just taken. Try another.',['unameInput']);
       q('btnCreate').disabled=false;q('btnCreate').innerHTML='Create vault →';return;
     }
     // New accounts use the portable username-derived vault key so they can
@@ -893,15 +1014,24 @@ q('btnCreate').addEventListener('click',async()=>{
     await saveSession(username,password);
     await chrome.storage.local.set({hasAccount:true,username});
 
-    // FIX [H6]: Show welcome screen first
-    show('vWelcome');
-    setTimeout(async()=>{
-      await goMain(true);
-    },2200);
+    showRecoveryKit();
   }catch(err){
-    toast('toastSetup',err.message,'err');
+    showError('toastSetup',err.message || 'Could not create the vault. Try again.',['unameInput','passInput']);
     q('btnCreate').disabled=false;q('btnCreate').innerHTML='Create vault →';
   }
+});
+
+q('btnCopyKit')?.addEventListener('click',()=>copyText(recoveryKitText(), 'toastRecovery', 'Recovery kit copied.'));
+q('btnDownloadKit')?.addEventListener('click',()=>{
+  const username = getU() || 'relay';
+  downloadTextFile(`relay-recovery-kit-${username}.txt`, recoveryKitText());
+  toast('toastRecovery', 'Recovery kit downloaded.', 'ok');
+});
+q('btnRecoveryContinue')?.addEventListener('click',()=>{
+  show('vWelcome');
+  setTimeout(async()=>{
+    await goMain(true);
+  },1200);
 });
 
 // ─────────────────────────────────────────────────────────────────────
@@ -926,8 +1056,7 @@ q('chkAuto').addEventListener('change',async e=>{
   if(e.target.checked && plan!=='pro'){
     // Revert immediately and warn
     e.target.checked=false;
-    toast('toastMain','Auto-sync is a Pro feature. Upgrade to enable it.','err');
-    setTimeout(()=>clrT('toastMain'),3500);
+    showError('toastMain','Auto-sync is a Pro feature. Upgrade to enable it.');
     return;
   }
   await chrome.storage.local.set({autoSync:e.target.checked});
@@ -941,6 +1070,9 @@ q('upgradeAlertBtn')?.addEventListener('click',openUpgrade);
 q('btnBackMain').addEventListener('click',()=>show('vMain'));
 q('btnUpgrade')?.addEventListener('click',openUpgrade);
 q('upgTeaser')?.addEventListener('click',openUpgrade);
+q('btnAddBrowserMain')?.addEventListener('click',showAddBrowser);
+q('btnAddBrowserSettings')?.addEventListener('click',showAddBrowser);
+q('btnShowRecovery')?.addEventListener('click',showRecoveryKit);
 q('btnCheckUpdate')?.addEventListener('click',()=>checkForUpdates({useCache:false}));
 q('btnDownloadUpdate')?.addEventListener('click',()=>openTrustedUrl(updateDownloadUrl, RELEASES_URL));
 q('btnInstallGuide')?.addEventListener('click',()=>openTrustedUrl(INSTALL_GUIDE_URL, RELEASES_URL));
@@ -953,7 +1085,7 @@ q('btnShowGift')?.addEventListener('click',()=>{
 q('btnShowHistory')?.addEventListener('click',async()=>{
   const {plan}=await chrome.storage.local.get('plan');
   if(plan!=='pro'){
-    toast('toastMain','Sync history is a Pro feature.','err');
+    showError('toastMain','Sync history is a Pro feature.');
     return;
   }
   show('vHistory');
@@ -1045,7 +1177,7 @@ q('btnRestoreConfirm')?.addEventListener('click',async()=>{
       show('vMain');
     },1800);
   }catch(err){
-    toast('toastRestore',err.message,'err');
+    showError('toastRestore',err.message || 'Could not restore that snapshot. Try again.');
   }finally{
     btn.disabled=false;btn.innerHTML='Add missing bookmarks →';
   }
@@ -1087,8 +1219,14 @@ q('btnDeleteAccount')?.addEventListener('click',()=>show('vDeleteConfirm'));
 // ─────────────────────────────────────────────────────────────────────
 q('btnBackGift')?.addEventListener('click',()=>show('vSecurity'));
 
+q('btnBackAddBrowser')?.addEventListener('click',()=>show('vSecurity'));
+q('btnCopyAddBrowser')?.addEventListener('click',()=>copyText(addBrowserText(), 'toastAddBrowser', 'Setup steps copied.'));
+q('btnOpenInstallGuide2')?.addEventListener('click',()=>openTrustedUrl(INSTALL_GUIDE_URL, RELEASES_URL));
+
 // FIX [M4]: Auto-format with dashes + paste detection
 q('giftInput')?.addEventListener('input',()=>{
+  clearErrors(['giftInput']);
+  clrT('toastGift');
   let v=q('giftInput').value.replace(/[^A-Z0-9]/gi,'').toUpperCase().slice(0,12);
   if(v.length>8)      v=v.slice(0,4)+'-'+v.slice(4,8)+'-'+v.slice(8);
   else if(v.length>4) v=v.slice(0,4)+'-'+v.slice(4);
@@ -1098,7 +1236,8 @@ q('giftInput')?.addEventListener('keydown',e=>{if(e.key==='Enter')q('btnRedeemGi
 
 q('btnRedeemGift')?.addEventListener('click',async()=>{
   const code=q('giftInput').value.trim().toUpperCase();
-  if(code.length<14){toast('toastGift','Enter a complete gift code (XXXX-XXXX-XXXX).','err');return;}
+  clearErrors(['giftInput']);
+  if(code.length<14){showError('toastGift','Enter a complete gift code (XXXX-XXXX-XXXX).',['giftInput']);return;}
 
   const btn=q('btnRedeemGift');
   btn.disabled=true;btn.innerHTML='<span class="sp"></span> Redeeming…';
@@ -1113,12 +1252,12 @@ q('btnRedeemGift')?.addEventListener('click',async()=>{
     try {
       data = await _relay.redeemGiftCode(code, vk);
     } catch {
-      toast('toastGift','Server error. Try again.','err');
+      showError('toastGift','Server error. Try again.');
       btn.disabled=false;btn.innerHTML='Redeem →';
       return;
     }
     if(!data || !data.success){
-      toast('toastGift',data.error||'Invalid code.','err');
+      showError('toastGift',data.error||'Invalid code.',['giftInput']);
     }else{
       // [H-12]: Verify with server, don't trust local set
       try {
@@ -1143,7 +1282,7 @@ q('btnRedeemGift')?.addEventListener('click',async()=>{
       setTimeout(()=>show('vSecurity'),2200);
     }
   }catch{
-    toast('toastGift','Something went wrong. Try again.','err');
+    showError('toastGift','Something went wrong. Try again.');
   }finally{
     btn.disabled=false;btn.innerHTML='Redeem →';
   }
@@ -1192,7 +1331,7 @@ q('btnDeleteConfirm')?.addEventListener('click',async()=>{
 
   }catch(err){
     btn.disabled=false;btn.innerHTML='Delete my account';
-    toast('toastDelete',err.message,'err');
+    showError('toastDelete',err.message || 'Could not delete the vault. Try again.');
   }
 });
 

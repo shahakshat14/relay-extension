@@ -71,6 +71,33 @@ test('remote bookmark restore rejects dangerous bookmark payloads', () => {
   assert.match(sync, /function isValidNode\(n\)/);
 });
 
+test('privacy helpers keep onboarding local and explicit', () => {
+  const popup = read('popup.js');
+  const html = read('popup.html');
+  assert.match(html, /id="vRecovery"/);
+  assert.match(html, /id="vAddBrowser"/);
+  assert.match(popup, /function recoveryKitText\(/);
+  assert.match(popup, /Relay cannot reset this password/);
+  assert.match(popup, /function downloadTextFile\(/);
+  assert.match(popup, /navigator\.clipboard\.writeText\(text\)/);
+  assert.doesNotMatch(popup, /fetch\([^)]*recovery/i);
+  assert.doesNotMatch(popup, /fetch\([^)]*password/i);
+});
+
+test('popup error states stay visible and field-specific', () => {
+  const popup = read('popup.js');
+  const html = read('popup.html');
+  assert.match(html, /\.input\.error/);
+  assert.match(html, /id="toastSignIn" role="status" aria-live="polite"/);
+  assert.match(popup, /function showError\(toastId, msg, fieldIds=\[\]\)/);
+  assert.match(popup, /e\.setAttribute\('role', t==='err' \? 'alert' : 'status'\)/);
+  assert.match(popup, /if\(t!=='err'\) e\._dismissTimer=setTimeout/);
+  assert.match(popup, /markError\(fieldIds\)/);
+  assert.match(popup, /showError\('toastSignIn',msg,fields\)/);
+  assert.match(popup, /clearErrors\(\['siUsername','siPassword'\]\)/);
+  assert.doesNotMatch(popup, /setTimeout\(\(\)=>clrT\('toastMain'\),3500\)/);
+});
+
 test('package script excludes non-extension pages', () => {
   const script = read('scripts/package-extension.sh');
   assert.match(script, /RELAY_OUTPUT_DIR/);

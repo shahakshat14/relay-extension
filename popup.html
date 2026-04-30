@@ -556,6 +556,10 @@ body::after {
 .input::placeholder { color: var(--t-3); }
 .input.valid { border-color: var(--teal); }
 .input.taken { border-color: var(--red); }
+.input.error {
+  border-color: var(--red);
+  box-shadow: 0 0 0 3px var(--red-soft);
+}
 .input-eye {
   position: absolute; right: 11px; top: 50%; transform: translateY(-50%);
   background: none; border: none; cursor: pointer; padding: 4px;
@@ -612,6 +616,98 @@ body::after {
 }
 .gen-btn svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; }
 .gen-btn:hover { background: var(--brand); color: #fff; border-color: var(--brand); }
+
+.kit-card {
+  background:
+    linear-gradient(145deg, rgba(255,253,248,0.92), rgba(239,233,222,0.58)),
+    radial-gradient(circle at 18% 0%, var(--brand-soft), transparent 44%);
+  border: 1.5px solid var(--bdr);
+  border-radius: var(--r-card);
+  box-shadow: var(--sh-hero);
+  padding: 14px;
+  margin: 12px 0;
+}
+.kit-label {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--brand-txt);
+  margin-bottom: 7px;
+}
+.kit-title {
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-bottom: 6px;
+}
+.kit-copy {
+  font-size: 12.5px;
+  color: var(--t-2);
+  line-height: 1.55;
+  margin-bottom: 12px;
+}
+.kit-fields {
+  display: grid;
+  gap: 7px;
+}
+.kit-field {
+  background: var(--surf-input);
+  border: 1px solid var(--sep);
+  border-radius: 8px;
+  padding: 9px 10px;
+}
+.kit-field span {
+  display: block;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--t-3);
+  margin-bottom: 4px;
+}
+.kit-field b {
+  display: block;
+  font-family: ui-monospace, "SF Mono", monospace;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--t-1);
+  word-break: break-all;
+}
+.kit-field.prose b {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  word-break: normal;
+}
+.helper-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 10px 0 8px;
+}
+.helper-tile {
+  border: 1px solid var(--bdr);
+  border-radius: var(--r-card);
+  background: var(--surf-1);
+  box-shadow: var(--sh-card);
+  padding: 11px 10px;
+  text-align: left;
+  cursor: pointer;
+  color: var(--t-1);
+  font-family: inherit;
+}
+.helper-tile b {
+  display: block;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+.helper-tile span {
+  display: block;
+  font-size: 11.5px;
+  color: var(--t-2);
+  line-height: 1.45;
+}
 
 /* Strength bars */
 .strength-bars { display: flex; gap: 3px; margin-top: 8px; margin-bottom: 5px; }
@@ -954,7 +1050,7 @@ body::after {
   <div style="text-align:center">
     <button class="btn-text" id="btnNewUserSignIn">New here? Create your sync vault →</button>
   </div>
-  <div class="toast" id="toastSignIn"></div>
+  <div class="toast" id="toastSignIn" role="status" aria-live="polite"></div>
 </div>
 
 <!-- SETUP -->
@@ -1021,7 +1117,34 @@ body::after {
     <b>Save this password.</b> It unlocks the encrypted vault. Relay cannot reset or recover it later.
   </div>
   <button class="btn btn-primary" id="btnCreate" disabled>Create vault →</button>
-  <div class="toast" id="toastSetup"></div>
+  <div class="toast" id="toastSetup" role="status" aria-live="polite"></div>
+</div>
+
+<!-- RECOVERY KIT -->
+<div id="vRecovery" class="view">
+  <div class="nav">
+    <div class="logo"><svg viewBox="0 0 20 20"><use href="#relay-logo-mark"></use></svg></div>
+    <span class="nav-title">Recovery kit</span>
+  </div>
+  <div class="kit-card">
+    <div class="kit-label">Privacy-first backup</div>
+    <div class="kit-title">Save this before you sync.</div>
+    <div class="kit-copy">Relay cannot reset your password because only this browser can unlock your encrypted bookmarks. Keep this kit somewhere private.</div>
+    <div class="kit-fields">
+      <div class="kit-field"><span>Username</span><b id="kitUsername">—</b></div>
+      <div class="kit-field"><span>Password</span><b id="kitPassword">—</b></div>
+      <div class="kit-field"><span>Install link</span><b>relayextension.com</b></div>
+    </div>
+  </div>
+  <div class="helper-grid" aria-label="Recovery kit actions">
+    <button class="helper-tile" id="btnCopyKit"><b>Copy kit</b><span>Paste into your password manager.</span></button>
+    <button class="helper-tile" id="btnDownloadKit"><b>Download</b><span>Save a private text copy.</span></button>
+  </div>
+  <button class="btn btn-primary" id="btnRecoveryContinue">I saved it - sync bookmarks →</button>
+  <div class="notice amber">
+    <b>Private note.</b> Anyone with this username and password can unlock the vault. Relay will never ask you to send it to support.
+  </div>
+  <div class="toast" id="toastRecovery" role="status" aria-live="polite"></div>
 </div>
 
 <!-- WELCOME -->
@@ -1140,9 +1263,23 @@ body::after {
         <svg viewBox="0 0 20 20"><path d="M7 5l5 5-5 5"/></svg>
       </div>
     </button>
+    <button class="list-row" id="btnAddBrowserMain">
+      <div class="row-icon" style="background:var(--brand-soft)">
+        <svg viewBox="0 0 24 24" style="stroke:var(--brand)">
+          <path d="M4 7h11"/><path d="M12 4l3 3-3 3"/><path d="M20 17H9"/><path d="M12 14l-3 3 3 3"/>
+        </svg>
+      </div>
+      <div class="row-content">
+        <div class="row-title">Add another browser</div>
+        <div class="row-subtitle">Install Relay, sign in, sync once</div>
+      </div>
+      <div class="row-trailing">
+        <svg viewBox="0 0 20 20"><path d="M7 5l5 5-5 5"/></svg>
+      </div>
+    </button>
   </div>
 
-  <div class="toast" id="toastMain"></div>
+  <div class="toast" id="toastMain" role="status" aria-live="polite"></div>
 </div>
 
 <!-- SETTINGS -->
@@ -1173,6 +1310,30 @@ body::after {
     <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
     Sync history
   </button>
+
+  <div class="section-header">Setup helpers</div>
+  <div class="list-section">
+    <button class="list-row" id="btnShowRecovery">
+      <div class="row-icon" style="background:var(--amber-soft)">
+        <svg viewBox="0 0 24 24" style="stroke:var(--amber)"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+      </div>
+      <div class="row-content">
+        <div class="row-title">Recovery kit</div>
+        <div class="row-subtitle">Save the username and password that unlock this vault</div>
+      </div>
+      <div class="row-trailing"><svg viewBox="0 0 20 20"><path d="M7 5l5 5-5 5"/></svg></div>
+    </button>
+    <button class="list-row" id="btnAddBrowserSettings">
+      <div class="row-icon" style="background:var(--brand-soft)">
+        <svg viewBox="0 0 24 24" style="stroke:var(--brand)"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
+      </div>
+      <div class="row-content">
+        <div class="row-title">Add another browser</div>
+        <div class="row-subtitle">Fast steps for Chrome, Edge, Brave, Arc, Opera, and Vivaldi</div>
+      </div>
+      <div class="row-trailing"><svg viewBox="0 0 20 20"><path d="M7 5l5 5-5 5"/></svg></div>
+    </button>
+  </div>
 
   <div class="section-header">Updates</div>
   <div class="info-card" id="updateCard">
@@ -1252,7 +1413,37 @@ body::after {
       style="font-family:ui-monospace,'SF Mono',monospace;font-size:18px;font-weight:700;letter-spacing:4px;text-align:center;text-transform:uppercase;padding:16px 13px">
   </div>
   <button class="btn btn-primary" id="btnRedeemGift">Redeem →</button>
-  <div class="toast" id="toastGift"></div>
+  <div class="toast" id="toastGift" role="status" aria-live="polite"></div>
+</div>
+
+<!-- ADD BROWSER -->
+<div id="vAddBrowser" class="view">
+  <div class="nav">
+    <div class="logo"><svg viewBox="0 0 20 20"><use href="#relay-logo-mark"></use></svg></div>
+    <span class="nav-title">Add browser</span>
+    <div class="nav-right"><button class="done-btn" id="btnBackAddBrowser">Done</button></div>
+  </div>
+  <div class="hero">
+    <div class="hero-icon">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
+    </div>
+    <div class="hero-title">Bring Relay to another browser.</div>
+    <div class="hero-sub">Use the same username and password. Relay decrypts locally, then brings bookmarks into sync.</div>
+  </div>
+  <div class="kit-card">
+    <div class="kit-label">Three steps</div>
+    <div class="kit-fields">
+      <div class="kit-field prose"><span>1. Install</span><b>Open relayextension.com on the other browser.</b></div>
+      <div class="kit-field prose"><span>2. Sign in</span><b id="addBrowserUsername">Use @— and your saved password.</b></div>
+      <div class="kit-field prose"><span>3. Sync</span><b>Click Sync once. Relay handles the comparison.</b></div>
+    </div>
+  </div>
+  <button class="btn btn-primary" id="btnCopyAddBrowser">Copy setup steps</button>
+  <button class="btn btn-secondary" id="btnOpenInstallGuide2">Open install guide</button>
+  <div class="notice info">
+    <b>No pairing server yet.</b> For privacy, Relay does not transmit your password. You move it with your password manager or Recovery Kit.
+  </div>
+  <div class="toast" id="toastAddBrowser" role="status" aria-live="polite"></div>
 </div>
 
 <!-- DELETE CONFIRM -->
@@ -1274,7 +1465,7 @@ body::after {
   </div>
   <button class="btn btn-danger" id="btnDeleteConfirm">Yes, delete my account</button>
   <button class="btn btn-secondary" id="btnDeleteCancel2">Keep my account</button>
-  <div class="toast" id="toastDelete"></div>
+  <div class="toast" id="toastDelete" role="status" aria-live="polite"></div>
 </div>
 
 <!-- DELETED -->
@@ -1317,7 +1508,7 @@ body::after {
   </div>
   <button class="btn btn-primary" id="btnRestoreConfirm">Add missing bookmarks →</button>
   <button class="btn btn-secondary" id="btnRestoreCancel2">Cancel</button>
-  <div class="toast" id="toastRestore"></div>
+  <div class="toast" id="toastRestore" role="status" aria-live="polite"></div>
 </div>
 
 <script src="popup-loader.js" defer></script>
