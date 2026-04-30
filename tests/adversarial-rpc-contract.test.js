@@ -8,6 +8,8 @@ const key = config.match(/SUPABASE_KEY = '([^']+)'/)?.[1];
 assert(url, 'SUPABASE_URL missing from config.js');
 assert(key, 'SUPABASE_KEY missing from config.js');
 
+const transport = process.env.RELAY_RPC_TRANSPORT || 'gateway';
+
 function randomHex(bytes) {
   return Array.from(crypto.getRandomValues(new Uint8Array(bytes)))
     .map((b) => b.toString(16).padStart(2, '0'))
@@ -15,7 +17,10 @@ function randomHex(bytes) {
 }
 
 async function rawRpc(name, body) {
-  const res = await fetch(`${url}/rest/v1/rpc/${name}`, {
+  const path = transport === 'direct'
+    ? `/rest/v1/rpc/${name}`
+    : `/functions/v1/relay-rpc/${name}`;
+  const res = await fetch(`${url}${path}`, {
     method: 'POST',
     headers: {
       apikey: key,

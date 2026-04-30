@@ -1,6 +1,6 @@
 {
   "name": "relay-extension",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "private": true,
   "description": "Private bookmark sync for people who use more than one browser.",
   "license": "SEE LICENSE IN LICENSE",

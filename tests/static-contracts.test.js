@@ -59,6 +59,15 @@ test('history RPC calls include write-token ownership proof', () => {
   assert.match(sync, /rpc\('get_sync_snapshot'/);
 });
 
+test('sync prefers private RPC gateway with rollout fallback', () => {
+  const sync = read('sync.js');
+  assert.match(sync, /\/functions\/v1\/relay-rpc\/\$\{name\}/);
+  assert.match(sync, /function shouldFallbackFromGateway\(status\)/);
+  assert.match(sync, /return directRpc\(name, body\)/);
+  assert.doesNotMatch(sync, /supabaseRequest\('\/rest\/v1\/rpc\/register_browser'/);
+  assert.doesNotMatch(sync, /supabaseRequest\('\/rest\/v1\/rpc\/redeem_gift_code'/);
+});
+
 test('remote bookmark restore rejects dangerous bookmark payloads', () => {
   const sync = read('sync.js');
   assert.match(sync, /const SAFE_PROTOCOLS = new Set\(\['http:', 'https:', 'ftp:', 'ftps:'\]\)/);

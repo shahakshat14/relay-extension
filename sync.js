@@ -17,6 +17,8 @@ const DEFAULT_CONFIG = {
   free_browser_limit:  2,
   maintenance_mode:    false,
   maintenance_message: '',
+  rpc_gateway_enabled: true,
+  rpc_gateway_fallback: true,
 };
 
 function supabaseUrl(path) {
@@ -34,6 +36,14 @@ async function supabaseRequest(path, body) {
     body: JSON.stringify(body || {}),
   });
   return res;
+}
+
+function shouldTryRpcGateway() {
+  return _remoteConfig?.rpc_gateway_enabled !== false;
+}
+
+function shouldFallbackFromGateway(status) {
+  return [404, 405, 502, 503, 504].includes(status);
 }
 
 async function getConfig() {
@@ -71,20 +81,40 @@ function friendlyError(raw) {
 }
 
 // ── Supabase RPC client ──────────────────────────────────────────
-// Uses the public anon key. Security is provided by:
-//   1. Narrow SECURITY DEFINER RPCs instead of public table grants
-//   2. Write tokens for server-side ownership checks
-//   3. AES-256-GCM encryption — server never sees plaintext
-// Level 2 (Supabase anonymous auth) will be added when the
-// project's GoTrue version supports grant_type=anonymous.
-async function rpc(name, body) {
-  const res = await supabaseRequest(`/rest/v1/rpc/${name}`, body);
+// Prefers the Relay Edge Function gateway so database RPCs can move out of
+// the public anon API surface. During rollout, a narrow direct-RPC fallback
+// keeps already-installed extension builds from getting stranded.
+async function parseRpcResponse(res) {
   if (!res.ok) {
     const err = await res.text().catch(() => `HTTP ${res.status}`);
     throw new Error(friendlyError(err));
   }
   const text = await res.text();
   return text ? JSON.parse(text) : null;
+}
+
+async function directRpc(name, body) {
+  return parseRpcResponse(await supabaseRequest(`/rest/v1/rpc/${name}`, body));
+}
+
+async function gatewayRpc(name, body) {
+  return supabaseRequest(`/functions/v1/relay-rpc/${name}`, body);
+}
+
+async function rpc(name, body) {
+  if (shouldTryRpcGateway()) {
+    try {
+      const res = await gatewayRpc(name, body);
+      if (res.ok || !shouldFallbackFromGateway(res.status) || _remoteConfig?.rpc_gateway_fallback === false) {
+        return parseRpcResponse(res);
+      }
+    } catch (err) {
+      if (_remoteConfig?.rpc_gateway_fallback === false) {
+        throw new Error(friendlyError(String(err?.message || err)));
+      }
+    }
+  }
+  return directRpc(name, body);
 }
 
 // Stub for future Level 2 — keeps popup.js sign-out handler working
@@ -331,13 +361,11 @@ async function registerBrowser(vaultId) {
   const ua        = navigator.userAgent.slice(0, 250);
 
   try {
-    const res = await supabaseRequest('/rest/v1/rpc/register_browser', {
+    return await rpc('register_browser', {
       p_vault_key:  vaultId,
       p_browser_id: browserId,
       p_ua:         ua,
     });
-    if (!res.ok) return { allowed: false, reason: 'verification_unavailable' };
-    return await res.json();
   } catch {
     return { allowed: false, reason: 'verification_unavailable' };
   }
@@ -528,9 +556,7 @@ async function restoreFromSnapshot(snapshotId, password, vaultId) {
 
 // ── Gift code redemption ──────────────────────────────────────────────
 async function redeemGiftCode(code, vaultKey) {
-  const res = await supabaseRequest('/rest/v1/rpc/redeem_gift_code', { p_code: code, p_vault_key: vaultKey });
-  if (!res.ok) throw new Error('Server error');
-  return await res.json().catch(() => null);
+  return await rpc('redeem_gift_code', { p_code: code, p_vault_key: vaultKey });
 }
 
 async function createCheckout(vaultKey) {

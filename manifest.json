@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Relay – Private Bookmark Sync",
   "short_name": "Relay",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "description": "Different browsers. Same bookmarks. Relay keeps Chromium-based browsers current with an encrypted vault only you can unlock.",
   "permissions": [
     "bookmarks",
