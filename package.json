@@ -1,6 +1,6 @@
 {
   "name": "relay-extension",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "private": true,
   "description": "Private bookmark sync for people who use more than one browser.",
   "license": "SEE LICENSE IN LICENSE",
@@ -12,7 +12,8 @@
     "assets:store": "node scripts/generate-store-assets.js",
     "package": "bash scripts/package-extension.sh",
     "checksums": "bash scripts/create-checksums.sh",
-    "test:rpc": "node tests/sync-rpc-contract.test.js"
+    "test:rpc": "node tests/sync-rpc-contract.test.js",
+    "test:adversarial": "node tests/adversarial-rpc-contract.test.js"
   },
   "engines": {
     "node": ">=20"

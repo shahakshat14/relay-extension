@@ -81,8 +81,10 @@ test('release tooling supports checksums and live sync contract tests', () => {
   const pkg = JSON.parse(read('package.json'));
   assert.equal(pkg.scripts.checksums, 'bash scripts/create-checksums.sh');
   assert.equal(pkg.scripts['test:rpc'], 'node tests/sync-rpc-contract.test.js');
+  assert.equal(pkg.scripts['test:adversarial'], 'node tests/adversarial-rpc-contract.test.js');
   assert.equal(fs.existsSync(path.join(root, 'scripts/create-checksums.sh')), true);
   assert.equal(fs.existsSync(path.join(root, 'tests/sync-rpc-contract.test.js')), true);
+  assert.equal(fs.existsSync(path.join(root, 'tests/adversarial-rpc-contract.test.js')), true);
 });
 
 test('public docs expose direct download and install instructions', () => {
