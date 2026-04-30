@@ -195,7 +195,6 @@ test('repository has GitHub navigation and intake templates', () => {
 
 test('store submission assets avoid synthetic screenshots', () => {
   const pkg = JSON.parse(read('package.json'));
-  const listing = read('docs/GOOGLE_STORE_SUBMISSION.md');
   const assets = [
     'icons/icon16.png',
     'icons/icon48.png',
@@ -210,10 +209,8 @@ test('store submission assets avoid synthetic screenshots', () => {
   assert.equal(pkg.scripts['assets:store'], 'node scripts/generate-store-assets.js');
   for (const asset of assets) {
     assert.equal(fs.existsSync(path.join(root, asset)), true, `${asset} is missing`);
-    assert.match(listing, new RegExp(asset.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   }
-  assert.doesNotMatch(listing, /store-assets\/google-submission\/screenshot-/);
-  assert.match(listing, /Capture real installed-extension screenshots manually/);
+  assert.equal(fs.existsSync(path.join(root, 'docs/GOOGLE_STORE_SUBMISSION.md')), false);
   assert.equal(fs.existsSync(path.join(root, 'store-assets/screenshots')), false);
   assert.doesNotMatch(read('scripts/generate-store-assets.js'), /function screenshot[A-Z]/);
 });

@@ -92,7 +92,6 @@ See [docs/SECURITY.md](docs/SECURITY.md) for the full threat model and implement
 - [docs/SECURITY.md](docs/SECURITY.md): privacy and security model
 - [docs/PRIVACY.md](docs/PRIVACY.md): readable privacy policy
 - [docs/CHANGELOG.md](docs/CHANGELOG.md): release history
-- [docs/GOOGLE_STORE_SUBMISSION.md](docs/GOOGLE_STORE_SUBMISSION.md): Chrome Web Store checklist
 
 ## File structure
 
